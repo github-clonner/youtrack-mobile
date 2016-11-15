@@ -1,23 +1,26 @@
 /* @flow */
-import {View, Linking} from 'react-native';
-import React, {PropTypes, Component} from 'react';
-// $FlowFixMe: cannot typecheck simple-markdown module because of mistakes there
-import SimpleMarkdown from 'simple-markdown';
+import {Linking, WebView} from 'react-native';
 import Router from '../router/router';
-import wikiRules from './wiki__rules';
-import {decorateIssueLinks, replaceImageNamesWithUrls, decorateUserNames} from './wiki__raw-text-decorator';
+import React, {PropTypes, Component} from 'react';
+import {extractId} from '../open-url-handler/open-url-handler';
+import styles from './wiki.styles';
+import template from './wiki.template';
 
 type Props = {
   style: any,
   children: any,
+  backendUrl: string,
   attachments: Array<Object>,
   onIssueIdTap: (issueId: string) => any
 };
 
+type State = {
+  webViewHeight: number
+}
+
 export default class Wiki extends Component {
   props: Props;
-  parser: (rawWiki: string) => Object;
-  renderer: (tree: Object) => Object;
+  state: State;
 
   static propTypes = {
     onIssueIdTap: PropTypes.func.isRequired,
@@ -26,47 +29,68 @@ export default class Wiki extends Component {
 
   constructor(props: Props) {
     super(props);
-    const rules = wikiRules({
-      onLinkPress: (url) => {
-        return Linking.openURL(url);
-      },
-      onImagePress: (url) => {
-        const allImagesUrls = props.attachments
-          .filter(attach => attach.mimeType.includes('image'))
-          .map(image => image.url);
 
-        return Router.ShowImage({currentImage: url, allImagesUrls});
-      },
-      onIssueIdPress: (issueId) => {
-        this.props.onIssueIdTap && this.props.onIssueIdTap(issueId);
-      }
-    });
-
-    this.parser = SimpleMarkdown.parserFor(rules);
-
-    this.renderer = SimpleMarkdown.reactFor(SimpleMarkdown.ruleOutput(rules, 'react'));
+    this.state = {
+      webViewHeight: 0
+    };
   }
 
-  parse(source: string) {
-    const blockSource = `${source}\n\n`;
-    return this.parser(blockSource, {inline: false});
+  handleMessage(event: any) {
+    const data = JSON.parse(event.nativeEvent.data);
+
+    if (data.name === 'image-click') {
+      const allImagesUrls = this.props.attachments
+        .filter(attach => attach.mimeType.includes('image'))
+        .map(image => image.url);
+
+      return Router.ShowImage({currentImage: data.src, allImagesUrls});
+    }
+
+    if (data.name === 'height-update') {
+      this.setState({webViewHeight: data.height});
+    }
+  }
+
+  handleNavigationChange(event: any) {
+    const {url} = event;
+
+    if (url === 'about:blank' || url.indexOf('react-js-navigation') === 0) {
+      return false;
+    }
+
+    if (url && url.indexOf(`${this.props.backendUrl}/issue/`) !== -1 && extractId(url)) {
+      this.props.onIssueIdTap && this.props.onIssueIdTap(extractId(url) || '');
+      return false;
+    }
+
+    if (url && url !== 'about:blank') {
+      Linking.openURL(url);
+      return false;
+    }
   }
 
   render() {
     const child = Array.isArray(this.props.children) ? this.props.children.join('') : this.props.children;
 
-    const tree = this.parse(child);
-
-    return <View style={[this.props.style]}>{this.renderer(tree)}</View>;
+    return <WebView
+      automaticallyAdjustContentInsets={true}
+      onNavigationStateChange={(...args) => this.handleNavigationChange(...args)}
+      scalesPageToFit={false}
+      scrollEnabled={false}
+      onMessage={(...args) => this.handleMessage(...args)}
+      style={[styles.webView, {height: this.state.webViewHeight}]}
+      source={{html: template(child), baseUrl: 'about:blank'}}
+    />;
   }
 }
 
-const decorateRawText = (source: string, wikifiedOnServer: string, attachments: Array<Object>) => {
-  let result = replaceImageNamesWithUrls(source, attachments);
-  if (wikifiedOnServer) {
-    result = decorateIssueLinks(result, wikifiedOnServer);
-    result = decorateUserNames(result, wikifiedOnServer);
+const decorateRawText = (source: string, serverUrl: string) => {
+  if (!serverUrl) {
+    return source;
   }
+  const result = source
+    .replace(/href="\//ig, `href="${serverUrl}/`)
+    .replace(/src="\//ig, `src="${serverUrl}/`);
   return result;
 };
 

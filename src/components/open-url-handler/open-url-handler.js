@@ -10,7 +10,7 @@ function isSameServer(url: string, serverUrl: string) {
   return url.indexOf(serverUrl) !== -1;
 }
 
-function extractId(issueUrl: ?string) {
+export function extractId(issueUrl: ?string) {
   if (!issueUrl) {
     return null;
   }

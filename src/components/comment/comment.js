@@ -33,8 +33,8 @@ export default class Comment extends React.Component {
   }
 
   _renderComment(comment, attachments) {
-    return <Wiki onIssueIdTap={issueId => this.props.onIssueIdTap(issueId)} attachments={attachments}>
-      {decorateRawText(comment.text, comment.textPreview, attachments)}
+    return <Wiki onIssueIdTap={issueId => this.props.onIssueIdTap(issueId)} attachments={attachments} backendUrl={this.props.backendUrl}>
+      {decorateRawText(comment.textPreview, this.props.backendUrl)}
     </Wiki>;
   }
 

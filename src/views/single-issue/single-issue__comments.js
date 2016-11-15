@@ -17,6 +17,7 @@ export default class SingleIssueComments extends React.Component {
     return comments.map((comment) => {
       return <Comment key={comment.id}
                       comment={comment}
+                      backendUrl={this.props.api.auth.config.backendUrl}
                       onIssueIdTap={this.props.onIssueIdTap}
                       attachments={attachments}
                       onReply={() => this.props.onReply(comment)}

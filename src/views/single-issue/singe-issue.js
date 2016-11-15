@@ -42,7 +42,7 @@ export default class SingeIssueView extends React.Component {
       isSavingEditedIssue: false,
       attachingImage: null,
       addCommentMode: false,
-      initialCommentText: '',
+      commentText: '',
       summaryCopy: null,
       descriptionCopy: null
     };
@@ -93,7 +93,7 @@ export default class SingeIssueView extends React.Component {
 
         this.state.issue.comments.push(createdComment);
 
-        this.setState({addCommentMode: false});
+        this.setState({addCommentMode: false, commentText: ''});
 
         return this.loadIssue(this.state.issue.id);
       })
@@ -160,7 +160,7 @@ export default class SingeIssueView extends React.Component {
       .then(() => this.loadIssue(this.state.issue.id))
       .then((res) => this.props.onUpdate && this.props.onUpdate(res))
       .catch((err) => {
-        notifyError('failed to update issue field', err);
+        notifyError('Failed to update issue field', err);
         return this.loadIssue(this.state.issue.id);
       });
   }
@@ -391,9 +391,10 @@ export default class SingeIssueView extends React.Component {
           {issue.description && <Wiki
             style={styles.description}
             attachments={issue.attachments}
+            backendUrl={this.props.api.auth.config.backendUrl}
             onIssueIdTap={issueId => this.goToIssueById(issueId)}
           >
-            {decorateRawText(issue.description, issue.wikifiedDescription, issue.attachments)}
+            {decorateRawText(issue.wikifiedDescription, this.props.api.auth.config.backendUrl)}
           </Wiki>}
         </View>}
 
@@ -435,7 +436,7 @@ export default class SingeIssueView extends React.Component {
               onReply={(comment) => {
                 this.setState({
                   addCommentMode: true,
-                  initialCommentText: `@${comment.author.login} `
+                  commentText: `@${comment.author.login} `
                 });
               }}
               onCopyCommentLink={(comment) => Clipboard.setString(this._makeIssueWebUrl(this.state.issue, comment.id))}
@@ -448,7 +449,8 @@ export default class SingeIssueView extends React.Component {
             autoFocus={true}
             suggestionsDataSource={query => this.loadCommentSuggestions(query)}
             onBlur={() => this.setState({addCommentMode: false})}
-            initialText={this.state.initialCommentText}
+            initialText={this.state.commentText}
+            onChangeText={text => this.setState({commentText: text})}
             onAddComment={(comment) => this.addComment(this.state.issue, comment)}
           />
 
@@ -458,7 +460,7 @@ export default class SingeIssueView extends React.Component {
         {this._canAddComment() && <View style={styles.addCommentContainer}>
           <TouchableOpacity
             style={styles.addCommentButton}
-            onPress={() => this.setState({addCommentMode: true, initialText: this.state.initialCommentText})}>
+            onPress={() => this.setState({addCommentMode: true, initialText: this.state.commentText})}>
             <Image source={comment} style={styles.addCommentIcon}/>
           </TouchableOpacity>
         </View>}
