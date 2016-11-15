@@ -8,9 +8,4 @@ describe('<Wiki/>', () => {
     const wrapper = shallow(<Wiki></Wiki>);
     wrapper.should.be.defined;
   });
-
-  it('should render just text', () => {
-    const wrapper = shallow(<Wiki>foo bar</Wiki>);
-    wrapper.html().should.contain('foo bar');
-  });
 });
