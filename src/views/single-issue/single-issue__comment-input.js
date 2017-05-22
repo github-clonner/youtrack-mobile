@@ -1,7 +1,9 @@
 /* @flow */
 import {View, Text, TouchableOpacity, ActivityIndicator, ScrollView, Image} from 'react-native';
 import React, {Component} from 'react';
+import {COLOR_PLACEHOLDER} from '../../components/variables/variables';
 import MultilineInput from '../../components/multiline-input/multiline-input';
+import type {IssueUser} from '../../flow/CustomFields';
 
 import styles from './single-issue.styles';
 
@@ -9,16 +11,17 @@ type Props = {
   initialText: string,
   onChangeText: (text: string) => any,
   onAddComment: (comment: string) => any,
-  suggestionsDataSource: (query: string) => Promise<{users: Array<IssueUser>}>
+
+  suggestionsAreLoading: boolean,
+  onRequestCommentSuggestions: (query: string) => any,
+  suggestions: ?{users: Array<IssueUser>}
 };
 
 type State = {
   isSaving: boolean,
   commentText: string,
-  isLoadingSuggestions: boolean,
   showSuggestions: boolean,
   suggestionsQuery: string,
-  suggestedUsers: Array<IssueUser>,
   commentCaret: number
 };
 
@@ -61,21 +64,12 @@ export default class IssueListCommentInput extends Component {
       .catch(() => this.setState({isSaving: false}));
   }
 
-  loadSuggestions(query: string) {
-    this.setState({isLoadingSuggestions: true});
-
-    return this.props.suggestionsDataSource(query)
-      .then(suggestions => this.setState({suggestedUsers: suggestions.users, isLoadingSuggestions: false}))
-      .catch(() => this.setState({isLoadingSuggestions: false}));
-  }
-
   suggestionsNeededDetector(text: string, caret: number) {
     const match = /[\S\@]+$/.exec(text.slice(0, caret));
     let currentWord = match && match[0];
     if (!currentWord) {
       return this.setState({
         showSuggestions: false,
-        suggestedUsers: [],
         suggestionsQuery: ''
       });
     }
@@ -86,7 +80,8 @@ export default class IssueListCommentInput extends Component {
         showSuggestions: true,
         suggestionsQuery: currentWord
       });
-      return this.loadSuggestions(currentWord);
+
+      this.props.onRequestCommentSuggestions(currentWord);
     }
   }
 
@@ -103,24 +98,27 @@ export default class IssueListCommentInput extends Component {
       const newText = replaceRange(this.state.commentText, startIndex, startIndex + currentWord.length, `@${user.login}`);
       this.setState({
         commentText: newText,
-        showSuggestions: false,
-        suggestedUsers: []
+        showSuggestions: false
       });
     }
   }
 
   renderSuggestions() {
+    const {suggestions, suggestionsAreLoading} = this.props;
     if (!this.state.showSuggestions) {
       return;
     }
 
     return (
-      <ScrollView style={styles.commentSuggestionsContainer} keyboardShouldPersistTaps={true}>
+      <ScrollView style={styles.commentSuggestionsContainer} keyboardShouldPersistTaps="handled">
 
-        {this.state.isLoadingSuggestions &&
-          <View style={styles.suggestionsLoadingMessage}><Text>Loading suggestions...</Text></View>}
+        {suggestionsAreLoading &&
+          <View style={styles.suggestionsLoadingMessage}>
+            <Text style={styles.suggestionsLoadingMessageText}>Loading suggestions...</Text>
+          </View>}
 
-        {this.state.suggestedUsers.map(user => {
+        {suggestions
+        ? suggestions.users.map(user => {
           return (
             <TouchableOpacity key={user.id}
                               style={styles.commentSuggestionButton}
@@ -130,7 +128,8 @@ export default class IssueListCommentInput extends Component {
               <Text style={styles.commentSuggestionLogin}>  @{user.login}</Text>
             </TouchableOpacity>
           );
-        })}
+        })
+        : null}
       </ScrollView>
     );
   }
@@ -141,22 +140,26 @@ export default class IssueListCommentInput extends Component {
         {this.renderSuggestions()}
 
         <View style={styles.commentInputWrapper}>
-          <MultilineInput placeholder="Type your comment here"
-                          value={this.state.commentText}
-                          editable={!this.state.isSaving}
-                          underlineColorAndroid="transparent"
-                          autoCapitalize="sentences"
-                          {...this.props}
-                          onSelectionChange = {(event) => {
-                            const caret = event.nativeEvent.selection.start;
-                            this.setState({commentCaret: caret});
-                          }}
-                          onChangeText={(text) => {
-                            this.setState({commentText: text});
-                            this.suggestionsNeededDetector(text, this.state.commentCaret);
-                            this.props.onChangeText && this.props.onChangeText(text);
-                          }}
-                          style={styles.commentInput}/>
+          <MultilineInput
+            placeholder="Type your comment here"
+            value={this.state.commentText}
+            editable={!this.state.isSaving}
+            underlineColorAndroid="transparent"
+            keyboardAppearance="dark"
+            placeholderTextColor={COLOR_PLACEHOLDER}
+            autoCapitalize="sentences"
+            {...this.props}
+            onSelectionChange = {(event) => {
+              const caret = event.nativeEvent.selection.start;
+              this.setState({commentCaret: caret});
+            }}
+            onChangeText={(text) => {
+              this.setState({commentText: text});
+              this.suggestionsNeededDetector(text, this.state.commentCaret);
+              this.props.onChangeText && this.props.onChangeText(text);
+            }}
+            style={styles.commentInput}
+          />
 
           <TouchableOpacity style={styles.commentSendButton}
                             disabled={!this.state.commentText}

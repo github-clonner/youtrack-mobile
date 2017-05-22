@@ -1,11 +1,12 @@
-import {StyleSheet, Platform} from 'react-native';
-import {COLOR_FONT_GRAY, COLOR_PINK, COLOR_FONT} from '../variables/variables';
+import {StyleSheet} from 'react-native';
+import {COLOR_FONT_GRAY, COLOR_PINK, COLOR_FONT_ON_BLACK} from '../variables/variables';
 
 const SELECTED_ALPHA_HEX = 20;
 
 export default StyleSheet.create({
   wrapper: {
-    padding: 8
+    padding: 8,
+    paddingTop: 6
   },
   wrapperActive: {
     backgroundColor: `${COLOR_PINK}${SELECTED_ALPHA_HEX}`
@@ -15,26 +16,35 @@ export default StyleSheet.create({
     flexWrap: 'nowrap'
   },
   keyText: {
-    color: COLOR_FONT,
-    paddingTop: 2,
+    color: COLOR_FONT_GRAY,
+    paddingBottom: 2,
     fontSize: 11,
     fontFamily: 'System'
   },
   valueText: {
-    color: COLOR_FONT,
-    fontWeight: 'bold',
+    color: COLOR_PINK,
+    fontFamily: 'System',
+    fontSize: 16,
     marginRight: 0,
-    padding: 2,
-    ...Platform.select({
-      ios: {
-        marginLeft: -2
-      },
-      android: {
-        paddingRight: -1
-      }
-    })
+    paddingTop: 2,
+    paddingBottom: 3
+  },
+  valueTextActive: {
+    color: COLOR_FONT_ON_BLACK,
   },
   valueTextDisabled: {
     color: COLOR_FONT_GRAY
+  },
+  colorMarkerContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0
+  },
+  colorMarker: {
+    flexGrow: 1,
+    height: 3
   }
 });

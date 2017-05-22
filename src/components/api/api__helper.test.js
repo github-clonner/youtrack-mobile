@@ -78,4 +78,58 @@ describe('Api helper', () => {
       fieldType.should.equal('jetbrains.charisma.customfields.complex.ownedField.SingleOwnedIssueCustomField');
     });
   });
+
+  describe('relative urls converter', () => {
+    it('should convert relative urls to absolute', () => {
+      const items = [
+        {
+          url: '/bar'
+        }
+      ];
+      const fixedItems = ApiHelper.convertRelativeUrls(items, 'url', 'http://test.com');
+
+      fixedItems[0].url.should.equal('http://test.com/bar');
+    });
+
+    it('should not touch absolute urls', () => {
+      const items = [
+        {
+          url: 'https://youtrack/bar'
+        }
+      ];
+      const fixedItems = ApiHelper.convertRelativeUrls(items, 'url', 'http://test.com');
+
+      fixedItems[0].url.should.equal('https://youtrack/bar');
+    });
+
+    it('should patch all possible avatar field values', () => {
+      const res = ApiHelper.patchAllRelativeAvatarUrls({
+        val: 'foo',
+        avatarUrl: '/hub/api/rest/avatar/123'
+      }, 'http://test.com');
+
+      res.val.should.equal('foo');
+      res.avatarUrl.should.equal('http://test.com/hub/api/rest/avatar/123');
+    });
+
+    it('should patch nested avatar field values', () => {
+      const res = ApiHelper.patchAllRelativeAvatarUrls({
+        val: 'foo',
+        test: {
+          avatarUrl: '/hub/api/rest/avatar/123'
+        }
+      }, 'http://test.com');
+
+      res.val.should.equal('foo');
+      res.test.avatarUrl.should.equal('http://test.com/hub/api/rest/avatar/123');
+    });
+
+    it('should stript html tags from commandPreview', () => {
+      ApiHelper.stripHtml('foo <span class="bold">bar</span>').should.equal('foo bar');
+    });
+
+    it('should not touch clean strings while stripping tags', () => {
+      ApiHelper.stripHtml('foo bar').should.equal('foo bar');
+    });
+  });
 });

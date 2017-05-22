@@ -4,6 +4,7 @@ import Permissions from './auth__permissions';
 import base64 from 'base64-js';
 import qs from 'qs';
 import log from '../log/log';
+import type {AppConfigFilled} from '../../flow/AppConfig';
 
 const STORAGE_KEY = 'yt_mobile_auth';
 
@@ -100,8 +101,8 @@ export default class Auth {
     return this.obtainToken([
       'grant_type=password',
       '&access_type=offline',
-      `&username=${login}`,
-      `&password=${password}`,
+      `&username=${encodeURIComponent(login)}`,
+      `&password=${encodeURIComponent(password)}`,
       `&scope=${this.config.auth.scopes}`
     ].join(''));
   }
@@ -149,6 +150,15 @@ export default class Auth {
       .then((authParams) => this.authParams = authParams);
   }
 
+  getAuthorizationHeaders(authParams: ?AuthParams = this.authParams): {Authorization: string} {
+    if (!authParams) {
+      throw new Error('Auth: getAuthorizationHeaders called before authParams initialization');
+    }
+    return {
+      'Authorization': `${authParams.token_type} ${authParams.access_token}`
+    };
+  }
+
   /**
    * Not sure that check is still required.
    */
@@ -158,7 +168,7 @@ export default class Auth {
     return fetch(this.CHECK_TOKEN_URL, {
       headers: {
         'Accept': ACCEPT_HEADER,
-        'Authorization': `${authParams.token_type} ${authParams.access_token}`
+        ...this.getAuthorizationHeaders(authParams)
       }
     }).then((res) => {
       if (res.status > 400) {

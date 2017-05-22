@@ -3,6 +3,7 @@ import showNotification from './notification_show';
 import log from '../log/log';
 import usage from '../usage/usage';
 
+const NOTIFY_DURATION = 2000;
 let toastComponentRef: Object;
 
 export const extractErrorMessage = function (err: Object | string): string {
@@ -21,21 +22,22 @@ export const extractErrorMessage = function (err: Object | string): string {
     err.error_description,
     err.error_children && err.error_children.map(it => it.error),
     err.body,
-    err.bodyText
+    err.bodyText,
+    err._bodyText
   ].filter(msg => msg);
 
   return values.join('. ');
 };
 
-export function resolveError (err: Object) {
+export async function resolveError (err: Object) {
   if (err.json) {
     try {
-      return err.json();
+      return await err.json();
     } catch (e) {
-      return Promise.resolve(err);
+      return err;
     }
   } else {
-    return Promise.resolve(err);
+    return err;
   }
 }
 
@@ -47,6 +49,10 @@ const showErrorMessage = function (message: string, error: Object) {
 
 export function notifyError (message: string, err: Object) {
   return resolveError(err).then(extracted => showErrorMessage(message, extracted));
+}
+
+export function notify (message: string) {
+  return showNotification(message, null, toastComponentRef, NOTIFY_DURATION);
 }
 
 export function setNotificationComponent (reference: Object) {

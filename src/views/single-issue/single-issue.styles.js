@@ -1,7 +1,5 @@
 import {StyleSheet, Platform} from 'react-native';
-import {UNIT, COLOR_LIGHT_GRAY, COLOR_FONT_GRAY, COLOR_FONT, COLOR_GRAY, COLOR_PINK} from '../../components/variables/variables';
-
-const ATTACHING_IMAGE_ALPHA = '70';
+import {UNIT, COLOR_LIGHT_GRAY, COLOR_FONT_ON_BLACK, COLOR_BLACK, COLOR_FONT_GRAY, COLOR_FONT, COLOR_TRANSPARENT_BLACK, COLOR_SELECTED_DARK, COLOR_GRAY, COLOR_PINK} from '../../components/variables/variables';
 
 const SUGGESTION_BOTTOM = Platform.OS === 'ios' ? 52 : 48;
 
@@ -11,6 +9,7 @@ export default StyleSheet.create({
     backgroundColor: COLOR_LIGHT_GRAY
   },
   headerText: {
+    color: COLOR_FONT_ON_BLACK,
     fontSize: 17
   },
   savingIndicator: {
@@ -23,10 +22,19 @@ export default StyleSheet.create({
     paddingTop: UNIT,
     backgroundColor: '#FFF'
   },
-  authorForText: {
-    paddingTop: 2,
+  issueTopMessage: {
+    paddingTop: 2
+  },
+  issueTopText: {
+    fontSize: 14,
+    color: COLOR_FONT_GRAY,
+  },
+  showMoreDateButton: {
     fontSize: 14,
     color: COLOR_FONT_GRAY
+  },
+  updatedInformation: {
+    marginTop: UNIT
   },
   tagsContainer: {
     flexDirection: 'row',
@@ -54,63 +62,17 @@ export default StyleSheet.create({
   },
   description: {
   },
-  summaryInput: {
-    marginTop: UNIT,
-    marginBottom: UNIT,
-    color: COLOR_FONT,
-    fontSize: 18,
-    height: UNIT * 5
-  },
-  descriptionInput: {
-    marginTop: UNIT,
-    marginBottom: UNIT,
-    height: UNIT * 10,
-    color: COLOR_FONT,
-    fontSize: 14,
-    textAlignVertical: 'top'
-  },
-  attachesContainer: {
-    marginTop: UNIT * 2,
-    paddingLeft: UNIT * 2,
-    marginBottom: 2,
-    marginLeft: -UNIT * 2,
-    marginRight: -UNIT * 2
-  },
-  attachmentImage: {
-    marginRight: UNIT,
-    width: 120,
-    height: UNIT * 8,
-    borderRadius: 4,
-    resizeMode: 'cover'
-  },
-  attachmentFile: {
-    marginRight: UNIT * 2,
-    width: 120,
-    height: 60,
-    justifyContent: 'center',
-    alignItems: 'center'
-  },
-  imageActivityIndicator: {
-    backgroundColor: `#CCCCCC${ATTACHING_IMAGE_ALPHA}`,
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: UNIT*2,
-    bottom: 0
-  },
   commentsListContainer: {
     paddingBottom: UNIT * 6
   },
   commentInputWrapper: {
-    backgroundColor: '#EBEBEB',
+    backgroundColor: COLOR_BLACK,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center'
   },
   commentSuggestionsContainer: {
-    backgroundColor: '#FFF',
-    borderTopWidth: 1,
-    borderColor: COLOR_GRAY,
+    backgroundColor: COLOR_TRANSPARENT_BLACK,
     position: 'absolute',
     top: -140,
     bottom: SUGGESTION_BOTTOM,
@@ -123,6 +85,9 @@ export default StyleSheet.create({
     alignItems: 'center',
     margin: UNIT
   },
+  suggestionsLoadingMessageText: {
+    color: COLOR_FONT_ON_BLACK
+  },
   commentSuggestionButton: {
     flexDirection: 'row',
     justifyContent: 'flex-start',
@@ -133,7 +98,7 @@ export default StyleSheet.create({
   },
   commentSuggestionName: {
     marginLeft: UNIT,
-    color: COLOR_FONT
+    color: COLOR_FONT_ON_BLACK
   },
   commentSuggestionLogin: {
     color: COLOR_FONT_GRAY
@@ -150,14 +115,12 @@ export default StyleSheet.create({
   },
   commentInput: {
     flex: 1,
-    height: UNIT * 3.5,
+    minHeight: UNIT * 4,
     borderRadius: 6,
-    backgroundColor: '#FFF',
+    backgroundColor: COLOR_SELECTED_DARK,
     margin: UNIT,
-    paddingTop: 2,
-    paddingBottom: 2,
     paddingLeft: UNIT,
-    color: COLOR_FONT,
+    color: COLOR_FONT_ON_BLACK,
     fontSize: 15
   },
   commentSendButton: {
@@ -186,7 +149,6 @@ export default StyleSheet.create({
     color: COLOR_FONT_GRAY
   },
   addCommentContainer: {
-    opacity: 0.7,
     position: 'absolute',
 
     right: UNIT,
@@ -197,7 +159,7 @@ export default StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
 
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FFFFFFAA',
     borderRadius: UNIT * 4,
 
     width: UNIT * 8,
@@ -212,9 +174,11 @@ export default StyleSheet.create({
     }
   },
   addCommentIcon: {
-    opacity: 0.8,
     marginTop: 4,
     width: UNIT * 3.5,
     height: UNIT * 3.5
+  },
+  keyboardSpacer: {
+    backgroundColor: COLOR_BLACK
   }
 });

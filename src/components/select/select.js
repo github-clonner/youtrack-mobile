@@ -1,22 +1,47 @@
+/* @flow */
 import {Text, Image, ScrollView, View, TouchableOpacity, TextInput, ActivityIndicator} from 'react-native';
-import React, {PropTypes} from 'react';
+import React from 'react';
 import styles from './select.styles';
-import Header from '../header/header';
 import ColorField from '../color-field/color-field';
 import {notifyError} from '../notification/notification';
+import {checkWhite} from '../icon/icon';
+import {COLOR_PLACEHOLDER, UNIT} from '../variables/variables';
+import getTopPadding, {onHeightChange} from '../header/header__top-padding';
 
 const MAX_VISIBLE_ITEMS = 100;
 
+export type Props = {
+  dataSource: (query: string) => Promise<Array<Object>>,
+  onSelect: (item: ?Object | Array<Object>) => any,
+  onChangeSelection: (selectedItems: Array<Object>) => any,
+  onCancel: () => any,
+  getTitle: (item: Object) => string,
+  getValue?: (item: Object) => string,
+  selectedItems: Array<Object>,
+  placeholder?: string,
+  multi: boolean,
+  autoFocus: boolean,
+  emptyValue: ?string,
+  style?: any
+};
+
+type State = {
+  query: string,
+  items: ?Array<Object>,
+  filteredItems: Array<Object>,
+  selectedItems: Array<Object>,
+  loaded: boolean
+};
+
 export default class Select extends React.Component {
-  static propTypes = {
-    dataSource: PropTypes.func.isRequired,
-    onSelect: PropTypes.func.isRequired,
-    selectedItems: PropTypes.array,
-    title: PropTypes.string,
-    multi: PropTypes.bool,
-    api: PropTypes.object,
-    emptyValue: PropTypes.oneOfType([PropTypes.string, PropTypes.null])
-  }
+  props: Props;
+  state: State;
+
+  static defaultProps = {
+    placeholder: 'Search item',
+    autoFocus: false,
+    onChangeSelection: (items) => null
+  };
 
   constructor() {
     super();
@@ -30,18 +55,33 @@ export default class Select extends React.Component {
   }
 
   componentDidMount() {
+    onHeightChange(() => this.forceUpdate());
     const selectedItems = this.props.selectedItems ? this.props.selectedItems : [];
     this.setState({selectedItems});
     this._loadItems(this.state.query);
   }
 
+  componentDidUpdate(prevProps: Props) {
+    if (prevProps.dataSource !== this.props.dataSource) {
+      this.setState({
+        loaded: false,
+        filteredItems: [],
+        items: null,
+        selectedItems: this.props.selectedItems || []
+      });
+      this._loadItems(this.state.query);
+    }
+  }
 
-  _loadItems(query) {
-    this.props.dataSource(query)
-      .then(items => this.setState({items}))
-      .then(() => this._onSearch(query))
-      .then(() => this.setState({loaded: true}))
-      .catch(err => notifyError('Failed to load values', err));
+  async _loadItems(query) {
+    try {
+      const items = await this.props.dataSource(query);
+      this.setState({items});
+      this._onSearch(query);
+      this.setState({loaded: true});
+    } catch (err) {
+      notifyError('Failed to load values', err);
+    }
   }
 
   _renderEmptyValueItem() {
@@ -50,17 +90,19 @@ export default class Select extends React.Component {
     }
     return (
       <TouchableOpacity key={this.props.emptyValue} style={styles.row} onPress={() => this._onClearValue()}>
-        {this.state.selectedItems.length === 0 && <View style={styles.selectedMark}></View>}
-
         <Text style={[styles.itemTitle, {marginLeft: 0}]}>{this.props.emptyValue}</Text>
+
+        {this.state.selectedItems.length === 0 && <Image source={checkWhite} style={styles.selectedMarkIcon}/>}
       </TouchableOpacity>
     );
   }
 
   _onSearch(query) {
     query = query || '';
+    const {getValue, getTitle} = this.props;
+
     const filteredItems = (this.state.items || []).filter(item => {
-      const label = this.props.getTitle(item) || '';
+      const label = (getValue && getValue(item)) || getTitle(item) || '';
       return label.toLowerCase().indexOf(query.toLowerCase()) !== -1;
     })
       .slice(0, MAX_VISIBLE_ITEMS);
@@ -87,11 +129,12 @@ export default class Select extends React.Component {
       return this.props.onSelect(item);
     }
 
-    if (this._isSelected(item)) {
-      this.setState({selectedItems: this.state.selectedItems.filter(it => it.id !== item.id)});
-    } else {
-      this.setState({selectedItems: this.state.selectedItems.concat(item)});
-    }
+    const selectedItems = this._isSelected(item)
+      ? this.state.selectedItems.filter(it => it.id !== item.id)
+      : this.state.selectedItems.concat(item);
+
+    this.setState({selectedItems});
+    this.props.onChangeSelection(selectedItems);
   }
 
   _onClearValue() {
@@ -106,51 +149,52 @@ export default class Select extends React.Component {
   _renderRow(item) {
     return (
       <TouchableOpacity key={item.id} style={styles.row} onPress={() => this._onTouchItem(item)}>
-        {item.avatarUrl && <Image style={styles.itemIcon} source={{uri: item.avatarUrl}}/>}
+        <View style={styles.selectItemValue}>
+          {item.avatarUrl && <Image style={styles.itemIcon} source={{uri: item.avatarUrl}}/>}
 
-        {this._isSelected(item) && <View style={styles.selectedMark}></View>}
+          {this._renderTitle(item)}
+        </View>
 
-        {this._renderTitle(item)}
+        {this._isSelected(item) && <Image source={checkWhite} style={styles.selectedMarkIcon}></Image>}
       </TouchableOpacity>
     );
   }
 
   render() {
+    const {multi, autoFocus, style, placeholder, onCancel} = this.props;
+
     return (
-      <View style={[styles.container, this.props.style]}>
-        <View style={{height: this.props.height}}>
-        <Header
-          leftButton={<Text>Cancel</Text>}
-          onBack={this.props.onCancel.bind(this)}
-          rightButton={this.props.multi ? <Text>Apply</Text> : null}
-          onRightButtonClick={this._onSave.bind(this)}>
-          <Text>{this.props.title}</Text>
-        </Header>
+      <View style={[styles.container, style, {paddingTop: getTopPadding() - UNIT * 2}]}>
         <View style={styles.inputWrapper}>
           <TextInput
-            placeholder="Search item"
-            returnKeyType="search"
+            placeholder={placeholder}
+            keyboardAppearance="dark"
+            autoFocus={autoFocus}
+            placeholderTextColor={COLOR_PLACEHOLDER}
+            returnKeyType={multi ? 'done' : 'search'}
             autoCorrect={false}
             underlineColorAndroid="transparent"
-            onSubmitEditing={(e) => this._onSearch(this.state.query)}
+            onSubmitEditing={(e) => multi ? this._onSave() : this._onSearch(this.state.query)}
             value={this.state.query}
             onChangeText={(text) => {
               this.setState({query: text});
               this._onSearch(text);
             }}
             style={styles.searchInput}/>
+            <TouchableOpacity style={styles.cancelButton} onPress={onCancel}>
+              <Text style={styles.cancelButtonText}>Cancel</Text>
+            </TouchableOpacity>
         </View>
-        <ScrollView keyboardShouldPersistTaps={true}
+        <ScrollView keyboardShouldPersistTaps="handled"
                     keyboardDismissMode="on-drag">
           {this._renderEmptyValueItem()}
-          {this.state.filteredItems && this.state.filteredItems.map(item => this._renderRow(item))}
+          {this.state.filteredItems.map(item => this._renderRow(item))}
 
-          {!this.state.loaded && <View style={styles.row}>
+          {!this.state.loaded && <View style={[styles.row, styles.loadingRow]}>
             <ActivityIndicator/>
             <Text style={styles.loadingMessage}>Loading values...</Text>
           </View>}
         </ScrollView>
-        </View>
       </View>
     );
   }

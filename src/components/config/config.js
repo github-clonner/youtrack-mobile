@@ -1,6 +1,7 @@
 /* @flow */
 import {AsyncStorage} from 'react-native';
 import UrlParse from 'url-parse';
+import type {AppConfig, AppConfigFilled} from '../../flow/AppConfig';
 
 const MIN_YT_VERSION = 7.0;
 const BACKEND_URL_STORAGE_KEY = 'yt_mobile_backend_url';
@@ -85,7 +86,7 @@ function getBaseUrl(url: string) {
   return UrlParse(url).origin;
 }
 
-function handleEmbeddedHubUrl(hubUrl: string, ytUrl: string) {
+function handleRelativeUrl(hubUrl: string, ytUrl: string) {
   ytUrl = getBaseUrl(ytUrl);
   return hubUrl[0] === '/' ? ytUrl + hubUrl : hubUrl;
 }
@@ -114,7 +115,7 @@ async function loadConfig(ytUrl: string) {
       config.version = res.version;
 
       Object.assign(config.auth, {
-        serverUri: handleEmbeddedHubUrl(res.ring.url, ytUrl),
+        serverUri: handleRelativeUrl(res.ring.url, ytUrl),
         youtrackServiceId: res.ring.serviceId,
         clientId: res.mobile.serviceId,
         clientSecret: res.mobile.serviceSecret
@@ -132,4 +133,4 @@ async function loadConfig(ytUrl: string) {
     });
 }
 
-export {loadConfig, getStoredConfig, formatYouTrackURL, VERSION_DETECT_FALLBACK_URL};
+export {loadConfig, getStoredConfig, formatYouTrackURL, handleRelativeUrl, VERSION_DETECT_FALLBACK_URL};

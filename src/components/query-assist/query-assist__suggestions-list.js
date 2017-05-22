@@ -1,103 +1,145 @@
-import {ListView, Text, TouchableOpacity, StyleSheet} from 'react-native';
+/* @flow */
+import {View, ListView, Text, TouchableOpacity, StyleSheet} from 'react-native';
 import React from 'react';
-import {UNIT} from '../variables/variables';
-import InvertibleScrollView from 'react-native-invertible-scroll-view';
+import {UNIT, COLOR_FONT_ON_BLACK, COLOR_FONT_GRAY} from '../variables/variables';
+import type {TransformedSuggestion, SavedQuery} from '../../flow/Issue';
 
-const ds = new ListView.DataSource({rowHasChanged: (r1, r2) => r1 !== r2});
+const SAVED_SEARCHES = 'SAVED_SEARCHES';
+const LAST_SEARCHES = 'LAST_SEARCHES';
+const SECTION_SPACING = 24;
+
+const ds = new ListView.DataSource({
+  rowHasChanged: (r1, r2) => r1 !== r2,
+  sectionHeaderHasChanged: (s1, s2) => s1 !== s2
+});
+
+type State = {
+  dataSource: typeof ListView.DataSource
+};
+
+type Props = {
+  style?: any,
+  suggestions: Array<TransformedSuggestion | SavedQuery>,
+  onApplySuggestion: (suggestion: TransformedSuggestion) => any,
+  onApplySavedQuery: (savedQuery: SavedQuery) => any
+};
 
 export default class QueryAssistSuggestionsList extends React.Component {
-  constructor() {
-    super();
-    this.state = {dataSource: ds.cloneWithRows([])};
+  props: Props;
+  state: State;
+  isUnmounted: boolean;
+  state = {
+    dataSource: ds.cloneWithRows([])
+  };
 
-    this.storedPromise = null;
+  constructor(props: Props) {
+    super(props);
   }
 
-  loadSuggestions(query, caret) {
-    const promise = this.props.getSuggestions(query, caret)
-      .then((suggestions) => {
-        if (promise !== this.storedPromise || this.isUnmounted) {
-          return;
-        }
-
-        suggestions = transformSuggestions(suggestions);
-        this.setState({dataSource: ds.cloneWithRows(suggestions)});
-      });
-
-    this.storedPromise = promise;
-    return promise;
+  componentWillReceiveProps(newProps: Props) {
+    this._prepareDataSource(newProps.suggestions);
   }
 
-  componentDidMount() {
-    this.loadSuggestions(this.props.query, this.props.caret);
-  }
+  _prepareDataSource(suggestions) {
+    const isSavedSearches = suggestions.some(s => s.name);
 
-  componentWillUnmount() {
-    this.isUnmounted = true;
-  }
-
-  componentWillReceiveProps(newProps) {
-    if (this.props.query !== newProps.query || this.props.caret !== newProps.caret) {
-      this.loadSuggestions(newProps.query, newProps.caret);
+    if (isSavedSearches) {
+      this.setState({dataSource: ds.cloneWithRowsAndSections(this._prepareSectionedMap(suggestions))});
+    } else {
+      this.setState({dataSource: ds.cloneWithRows(suggestions)});
     }
   }
 
-  onApplySuggestion(suggestion) {
-    const suggestionText = `${suggestion.prefix}${suggestion.option}${suggestion.suffix}`;
-    const oldQuery = this.props.query || '';
-    const newQuery = oldQuery.substring(0, suggestion.completionStart) + suggestionText + oldQuery.substring(suggestion.completionEnd);
-    return this.props.onApplySuggestion(newQuery);
+  _prepareSectionedMap = (suggestions: Array<TransformedSuggestion>) => {
+    const savedSearches = suggestions.filter(s => s.id);
+    const lastSearches = suggestions.filter(s => !s.id);
+
+    let res = {};
+    res = savedSearches.length ? {[SAVED_SEARCHES]: savedSearches} : res;
+    res = lastSearches.length ? {...res, [LAST_SEARCHES]: lastSearches} : res;
+
+    return res;
   }
 
-  _renderRow(suggestion) {
-    return (
-      <TouchableOpacity style={styles.searchRow} onPress={() => this.onApplySuggestion(suggestion)}>
-        <Text style={styles.searchText}>{suggestion.option}</Text>
-      </TouchableOpacity>);
+  _onApplySuggestion = (suggestion: TransformedSuggestion | SavedQuery) => {
+    const isSuggestion = suggestion.caret;
+    const {onApplySuggestion, onApplySavedQuery} = this.props;
+    return isSuggestion ? onApplySuggestion(suggestion) : onApplySavedQuery(suggestion);
   }
+
+  _renderRow = (suggestion: TransformedSuggestion | SavedQuery) => {
+    const isSuggestion = suggestion.caret;
+
+    return (
+      <TouchableOpacity
+        style={styles.searchRow}
+        onPress={() => this._onApplySuggestion(suggestion)}
+      >
+        <Text style={styles.searchText}>{isSuggestion ? suggestion.option : suggestion.name}</Text>
+      </TouchableOpacity>
+    );
+  }
+
+  _renderSectionHeader = (sectionData: Array<Object>, category: string) => {
+    const savedSearches = category === SAVED_SEARCHES;
+
+    if (savedSearches || category === LAST_SEARCHES) {
+      return (
+        <View style={[styles.sectionHeader, !savedSearches && {paddingTop: SECTION_SPACING}]}>
+          <Text style={styles.sectionHeaderText}>{savedSearches ? 'SAVED SEARCHES' : 'RECENT SEARCHES'}</Text>
+        </View>
+      );
+    }
+    return null;
+  };
+
 
   render() {
     return (
-      <ListView
-        style={this.props.style}
-        dataSource={this.state.dataSource}
-        enableEmptySections={true}
-        renderRow={(suggestion) => this._renderRow(suggestion)}
-        renderScrollComponent={props => <InvertibleScrollView {...props} inverted />}
-        keyboardShouldPersistTaps={true}/>
+      <View style={[styles.container, this.props.style]}>
+        <ListView
+          contentContainerStyle={styles.list}
+
+          dataSource={this.state.dataSource}
+          enableEmptySections
+          stickySectionHeadersEnabled={false}
+          renderRow={this._renderRow}
+          renderSectionHeader={this._renderSectionHeader}
+          keyboardShouldPersistTaps="handled"
+        />
+      </View>
     );
   }
 }
 
 const styles = StyleSheet.create({
-  searchRow: {
-    flex: 1,
-    padding: UNIT,
-    paddingBottom: UNIT * 2,
+  container: {
+    flexDirection: 'row',
+    alignItems: 'flex-end'
+  },
+  list: {
+    overflow: 'visible',
     paddingTop: UNIT * 2
   },
+  searchRow: {
+    padding: UNIT * 2,
+    paddingTop: UNIT * 1.5,
+    paddingBottom: UNIT * 1.5,
+    paddingRight: UNIT
+  },
+  sectionHeader: {
+    padding: UNIT * 2,
+    paddingBottom: UNIT
+  },
   searchText: {
-    flex: 1,
     fontSize: 24,
+    fontWeight: '300',
+    color: COLOR_FONT_ON_BLACK
+  },
+  sectionHeaderText: {
     fontWeight: '200',
-    textAlign: 'center'
+    fontSize: 14,
+    letterSpacing: 2,
+    color: COLOR_FONT_GRAY
   }
 });
-
-function transformSuggestions(suggest) {
-  const result = [];
-  for (let i = 0, length = suggest.length; i < length; i++) {
-    result.push({
-      prefix: suggest[i].pre || '',
-      option: suggest[i].o || '',
-      suffix: suggest[i].suf || '',
-      description: suggest[i].hd || suggest[i].d || '',
-      matchingStart: suggest[i].ms,
-      matchingEnd: suggest[i].me,
-      caret: suggest[i].cp,
-      completionStart: suggest[i].cs,
-      completionEnd: suggest[i].ce
-    });
-  }
-  return result;
-}

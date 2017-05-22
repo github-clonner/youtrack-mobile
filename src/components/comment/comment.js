@@ -1,5 +1,5 @@
+/* @flow */
 import styles from './comment.styles';
-import relativeDate from 'relative-date';
 import Wiki, {decorateRawText} from '../../components/wiki/wiki';
 import {COLOR_LIGHT_GRAY, COLOR_FONT_GRAY, COLOR_PINK} from '../../components/variables/variables';
 
@@ -7,9 +7,22 @@ import {View, Text, Image} from 'react-native';
 import React from 'react';
 import Swipeout from 'react-native-swipeout';
 import SwipeButton from './comment__swipe-button';
+import {relativeDate} from '../issue-formatter/issue-formatter';
 import {reply, share} from '../icon/icon';
+import type {IssueComment, Attachment} from '../../flow/CustomFields';
+
+type Props = {
+  comment: IssueComment,
+  attachments: Array<Attachment>,
+  imageHeaders: ?Object,
+  onReply: () => any,
+  onCopyCommentLink: () => any,
+  onIssueIdTap: (issueId: string) => any
+};
 
 export default class Comment extends React.Component {
+  props: Props;
+
   static defaultProps = {
     onReply: () => {
     },
@@ -33,9 +46,15 @@ export default class Comment extends React.Component {
   }
 
   _renderComment(comment, attachments) {
-    return <Wiki onIssueIdTap={issueId => this.props.onIssueIdTap(issueId)} attachments={attachments} backendUrl={this.props.backendUrl}>
-      {decorateRawText(comment.textPreview, this.props.backendUrl)}
-    </Wiki>;
+    return (
+      <Wiki
+        onIssueIdTap={issueId => this.props.onIssueIdTap(issueId)}
+        attachments={attachments}
+        imageHeaders={this.props.imageHeaders}
+      >
+        {decorateRawText(comment.text, comment.textPreview, attachments)}
+      </Wiki>
+    );
   }
 
   render() {

@@ -1,97 +1,66 @@
+/* @flow */
 import {
-  AsyncStorage,
   View,
   Text,
-  ListView,
-  ScrollView,
+  FlatList,
   RefreshControl,
-  Platform,
   TouchableOpacity,
   AppState
 } from 'react-native';
-import React from 'react';
+import React, {Component} from 'react';
+import {bindActionCreators} from 'redux';
+import {connect} from 'react-redux';
 
 import openByUrlDetector from '../../components/open-url-handler/open-url-handler';
 import styles from './issue-list.styles';
 import Header from '../../components/header/header';
 import QueryAssist from '../../components/query-assist/query-assist';
 import {COLOR_PINK} from '../../components/variables/variables';
-import Cache from '../../components/cache/cache';
-import {notifyError, resolveError, extractErrorMessage} from '../../components/notification/notification';
+import {extractErrorMessage} from '../../components/notification/notification';
 import usage from '../../components/usage/usage';
 
-import Api from '../../components/api/api';
-import ApiHelper from '../../components/api/api__helper';
 import IssueRow from './issue-list__row';
-import IssueListMenu from './issue-list__menu';
+import Menu from '../../components/menu/menu';
 import Router from '../../components/router/router';
-import KeyboardSpacer from 'react-native-keyboard-spacer';
-import Drawer from 'react-native-drawer';
+import * as issueActions from './issue-list-actions';
+import {openMenu} from '../../actions';
+import type Auth from '../../components/auth/auth';
+import type Api from '../../components/api/api';
+import type {IssuesListState} from './issue-list-reducers';
+import type {IssueOnList} from '../../flow/Issue';
 
-const QUERY_STORAGE_KEY = 'YT_QUERY_STORAGE';
-const PAGE_SIZE = 10;
-const ISSUES_CACHE_KEY = 'yt_mobile_issues_cache';
+type Props = IssuesListState & {
+  openMenu: openMenu,
+  auth: Auth,
+  api: Api
+};
 
-const ds = new ListView.DataSource({rowHasChanged: (r1, r2) => r1 !== r2});
-
-class IssueList extends React.Component {
-
+export class IssueList extends Component {
+  props: Props;
+  unsubscribeFromOpeningWithIssueUrl: () => any
   constructor() {
     super();
-    this.cache = new Cache(ISSUES_CACHE_KEY);
-
-    this.state = {
-      issues: [],
-      dataSource: ds.cloneWithRows([]),
-      skip: 0,
-      isLoadingMore: false,
-      listEndReached: false,
-
-      showMenu: false,
-      loadingError: null,
-      queryAssistValue: '',
-      isInitialized: false,
-      isRefreshing: false
-    };
-
-    this.cache.read().then(issues => {
-      this.setState({
-        issues: issues,
-        dataSource: this.state.dataSource.cloneWithRows(issues)
-      });
-    });
-
-    this._handleAppStateChange = this._handleAppStateChange.bind(this);
     usage.trackScreenView('Issue list');
   }
 
-  _handleAppStateChange(newState) {
+  _handleAppStateChange = (newState) => {
     if (newState === 'active') {
-      this.loadIssues(this.state.queryAssistValue);
+      this.props.refreshIssues();
     }
   }
 
   componentDidMount() {
-    this.api = new Api(this.props.auth);
     this.unsubscribeFromOpeningWithIssueUrl = openByUrlDetector(
       this.props.auth.config.backendUrl,
       (issueId) => {
         usage.trackEvent('Issue list', 'Open issue in app by URL');
-        Router.SingleIssue({
-          issueId: issueId,
-          api: this.api,
-          onUpdate: () => this.loadIssues(null)
-        });
+        Router.SingleIssue({issueId});
       },
       (issuesQuery) => {
         this.onQueryUpdated(issuesQuery);
       });
 
-    if (this.props.query) {
-      this.setQuery(this.props.query);
-    } else {
-      this.loadStoredQuery().then(query => this.setQuery(query));
-    }
+    this.props.initializeIssuesList();
 
     AppState.addEventListener('change', this._handleAppStateChange);
   }
@@ -101,198 +70,133 @@ class IssueList extends React.Component {
     AppState.removeEventListener('change', this._handleAppStateChange);
   }
 
-  storeQuery(query) {
-    return AsyncStorage.setItem(QUERY_STORAGE_KEY, query);
-  }
-
-  loadStoredQuery() {
-    return AsyncStorage.getItem(QUERY_STORAGE_KEY);
-  }
-
-  goToIssue(issue) {
+  goToIssue(issue: IssueOnList) {
     Router.SingleIssue({
       issuePlaceholder: issue,
-      issueId: issue.id,
-      api: this.api,
-      onUpdate: () => this.loadIssues(this.state.queryAssistValue)
+      issueId: issue.id
     });
   }
 
-  logOut() {
-    return this.props.auth.logOut()
-      .then(() => this.cache.store([]))
-      .then(() => Router.EnterServer({serverUrl: this.props.auth.config.backendUrl}));
+  logOut = () => {
+    this.props.cacheIssues([]);
   }
 
-  loadIssues(text) {
-    this.setState({loadingError: null, listEndReached: false, isRefreshing: true, skip: 0});
-
-    return this.api.getIssues(text, PAGE_SIZE)
-      .then(ApiHelper.fillIssuesFieldHash)
-      .then((issues) => {
-        this.setState({
-          issues: issues,
-          dataSource: this.state.dataSource.cloneWithRows(issues),
-          isRefreshing: false,
-          isInitialized: true,
-          listEndReached: issues.length < PAGE_SIZE
-        });
-        this.cache.store(issues);
-      })
-      .catch((err) => {
-        return resolveError(err)
-          .then(resolvedErr => {
-            this.setState({
-              isRefreshing: false,
-              isInitialized: true,
-              listEndReached: true,
-              loadingError: resolvedErr,
-              dataSource: this.state.dataSource.cloneWithRows([])
-            });
-          });
-      });
-  }
-
-  updateIssues() {
-    return this.loadIssues(this.state.queryAssistValue);
-  }
-
-  loadMore() {
-    if (!this.state.isInitialized || this.state.isLoadingMore || this.state.isRefreshing || this.state.loadingError || this.state.listEndReached) {
-      return;
-    }
-
-    this.setState({isLoadingMore: true});
-    const newSkip = this.state.skip + PAGE_SIZE;
-
-    return this.api.getIssues(this.state.queryAssistValue, PAGE_SIZE, newSkip)
-      .then(ApiHelper.fillIssuesFieldHash)
-      .then((newIssues) => {
-        const updatedIssues = this.state.issues.concat(newIssues);
-        this.setState({
-          issues: updatedIssues,
-          dataSource: this.state.dataSource.cloneWithRows(updatedIssues),
-          skip: newSkip,
-          listEndReached: newIssues.length < PAGE_SIZE
-        });
-        this.cache.store(updatedIssues);
-      })
-      .then(() => this.setState({isLoadingMore: false}))
-      .catch((err) => {
-        this.setState({isLoadingMore: false});
-        return notifyError('Failed to fetch more issues', err);
-      });
-  }
-
-  formatErrorMessage(error) {
-    return extractErrorMessage(error);
-  }
-
-  getSuggestions(query, caret) {
-    return this.api.getQueryAssistSuggestions(query, caret)
-      .then(res => {
-        return res.suggest.items;
-      })
-      .catch(err => notifyError('Failed to fetch query assist suggestions', err));
-  }
-
-  setQuery(query) {
-    this.setState({queryAssistValue: query});
-    this.loadIssues(query);
-  }
-
-  onQueryUpdated(query) {
-    this.storeQuery(query);
-    this.setQuery(query);
+  onQueryUpdated = (query: string) => {
+    this.props.storeIssuesQuery(query);
+    this.props.setIssuesQuery(query);
+    this.props.clearAssistSuggestions();
+    this.props.loadIssues(query);
   }
 
   _renderHeader() {
+    const {issuesCount} = this.props;
     return (
       <Header
         leftButton={<Text>Menu</Text>}
         rightButton={<Text>Create</Text>}
-        onBack={() => this.setState({showMenu: true})}
-        onRightButtonClick={() => {
-          return Router.CreateIssue({
-            api: this.api,
-            onCreate: (createdIssue) => {
-              const updatedIssues = ApiHelper.fillIssuesFieldHash([createdIssue]).concat(this.state.issues);
-              this.setState({
-                dataSource: this.state.dataSource.cloneWithRows(updatedIssues)
-              });
-            }});
-          }
-        }
+        onBack={this.props.openMenu}
+        onRightButtonClick={() => Router.CreateIssue()}
       >
-        <Text style={styles.headerText}></Text>
+        <Text style={styles.headerText}>
+          {issuesCount}{' '}Issues
+        </Text>
       </Header>
     );
   }
 
+  _renderRow = ({item}) => {
+    return (
+      <IssueRow key={item.id} issue={item} onClick={(issue) => this.goToIssue(issue)}></IssueRow>
+    );
+  };
+
+  _getIssueId = issue => issue.id;
+
   _renderRefreshControl() {
     return <RefreshControl
-      refreshing={this.state.isRefreshing}
-      onRefresh={this.updateIssues.bind(this)}
+      refreshing={this.props.isRefreshing}
+      onRefresh={this.props.refreshIssues}
       tintColor={COLOR_PINK}
+      testID="refresh-control"
     />;
   }
 
-  _renderListMessage() {
-    if (this.state.loadingError) {
+  _renderSeparator = () => {
+    return <View style={styles.separator}/>;
+  };
+
+  _renderListMessage = () => {
+    const {loadingError, isRefreshing, isListEndReached, isLoadingMore, issues} = this.props;
+    if (loadingError) {
       return (<View style={styles.errorContainer}>
-        <Text style={styles.errorTitle}>Cannot load issues</Text>
-        <Text style={styles.errorContent}>{this.formatErrorMessage(this.state.loadingError)}</Text>
-        <TouchableOpacity style={styles.tryAgainButton} onPress={() => this.loadIssues(this.state.queryAssistValue)}>
+        <Text style={styles.listMessageSmile}>{'(>_<)'}</Text>
+        <Text style={styles.errorTitle} testID="cannot-load-message">Cannot load issues</Text>
+        <Text style={styles.errorContent}>{extractErrorMessage(loadingError)}</Text>
+        <TouchableOpacity style={styles.tryAgainButton} onPress={() => this.props.refreshIssues()}>
           <Text style={styles.tryAgainText}>Try Again</Text>
         </TouchableOpacity>
       </View>);
     }
-    if (!this.state.isRefreshing && !this.state.isLoadingMore && this.state.issues.length === 0) {
-      return <Text style={styles.loadingMore}>No issues found</Text>;
+    if (!isRefreshing && !isLoadingMore && issues.length === 0) {
+      return (
+        <View>
+          <Text style={styles.listMessageSmile}>(・_・)</Text>
+          <Text style={styles.listFooterMessage} testID="no-issues">No issues found</Text>
+        </View>
+      );
     }
 
-    if (this.state.isLoadingMore && !this.state.listEndReached) {
-      return <Text style={styles.loadingMore}>Loading more issues...</Text>;
+    if (isLoadingMore && !isListEndReached) {
+      return <Text style={styles.listFooterMessage}>Loading more issues...</Text>;
     }
-  }
+    return null;
+  };
 
   render() {
-    return <Drawer
-      type="static"
-      open={this.state.showMenu}
-      content={<IssueListMenu onLogOut={this.logOut.bind(this)}
-                user={this.props.auth.currentUser}
-                backendUrl={this.props.auth.config.backendUrl}
-              />}
-      tapToClose={true}
-      onOpen={() => this.setState({showMenu: true})}
-      onClose={() => this.setState({showMenu: false})}
-      openDrawerOffset={1/4}
-    >
-      <View style={styles.listContainer}>
-        {this._renderHeader()}
+    const {query, issues, loadMoreIssues, suggestIssuesQuery, queryAssistSuggestions} = this.props;
 
-        <ListView
-          removeClippedSubviews={false}
-          dataSource={this.state.dataSource}
-          enableEmptySections={true}
-          renderRow={(issue) => <IssueRow issue={issue} onClick={(issue) => this.goToIssue(issue)}></IssueRow>}
-          renderSeparator={(sectionID, rowID) => <View style={styles.separator} key={rowID}/>}
-          onEndReached={this.loadMore.bind(this)}
-          onEndReachedThreshold={30}
-          renderScrollComponent={(props) => <ScrollView {...props} refreshControl={this._renderRefreshControl()}/>}
-          renderFooter={() => this._renderListMessage()}
-          refreshDescription="Refreshing issues"/>
+    return (
+      <Menu onBeforeLogOut={this.logOut}>
+        <View style={styles.listContainer} testID="issue-list-page">
+          {this._renderHeader()}
 
-        <QueryAssist
-          initialQuery={this.state.queryAssistValue}
-          dataSource={this.getSuggestions.bind(this)}
-          onQueryUpdate={newQuery => this.onQueryUpdated(newQuery)}/>
+          <FlatList
+            removeClippedSubviews={false}
+            data={issues}
+            keyExtractor={this._getIssueId}
+            renderItem={this._renderRow}
+            refreshControl={this._renderRefreshControl()}
+            tintColor={COLOR_PINK}
+            ItemSeparatorComponent={this._renderSeparator}
+            ListFooterComponent={this._renderListMessage}
+            onEndReached={loadMoreIssues}
+            onEndReachedThreshold={0.1}
+            testID="issue-list"
+          />
 
-        {Platform.OS == 'ios' && <KeyboardSpacer/>}
-      </View>
-    </Drawer>;
+          <QueryAssist
+            suggestions={queryAssistSuggestions}
+            currentQuery={query}
+            onChange={suggestIssuesQuery}
+            onSetQuery={this.onQueryUpdated}/>
+        </View>
+      </Menu>
+    );
   }
 }
 
-export default IssueList;
+const mapStateToProps = (state, ownProps) => {
+  return {
+    ...state.issueList,
+    ...state.app
+  };
+};
+
+const mapDispatchToProps = (dispatch) => {
+  return {
+    ...bindActionCreators(issueActions, dispatch),
+    openMenu: () => dispatch(openMenu())
+  };
+};
+
+export default connect(mapStateToProps, mapDispatchToProps)(IssueList);

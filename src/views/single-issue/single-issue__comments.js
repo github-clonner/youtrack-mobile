@@ -1,23 +1,36 @@
+/* @flow */
 import styles from './single-issue.styles';
 import Comment from '../../components/comment/comment';
-
+import type {IssueComment, Attachment} from '../../flow/CustomFields';
 
 import {View, Text} from 'react-native';
-import React from 'react';
+import React, {Component} from 'react';
 
-export default class SingleIssueComments extends React.Component {
+type Props = {
+  comments: Array<IssueComment>,
+  attachments: Array<Attachment>,
+  imageHeaders: ?Object,
+  onReply: (comment: IssueComment) => any,
+  onCopyCommentLink: (comment: IssueComment) => any,
+  onIssueIdTap: (issueId: string) => any
+};
+
+type DefaultProps = {
+  onReply: Function,
+  onCopyCommentLink: Function,
+};
+
+export default class SingleIssueComments extends Component<DefaultProps, Props, void> {
   static defaultProps = {
-    onReply: () => {
-    },
-    onCopyCommentLink: () => {
-    }
+    onReply: () => {},
+    onCopyCommentLink: () => {}
   };
 
   _renderCommentsList(comments, attachments) {
     return comments.map((comment) => {
       return <Comment key={comment.id}
                       comment={comment}
-                      backendUrl={this.props.api.auth.config.backendUrl}
+                      imageHeaders={this.props.imageHeaders}
                       onIssueIdTap={this.props.onIssueIdTap}
                       attachments={attachments}
                       onReply={() => this.props.onReply(comment)}
@@ -26,13 +39,13 @@ export default class SingleIssueComments extends React.Component {
   }
 
   render() {
-    let comments = this.props.comments;
-    comments = comments.reduceRight((val, item) => val.concat([item]), []); //reverse to get designed order of comments
+    const {comments, attachments} = this.props;
+    const reversed = [...comments].reverse();//reverse to get designed order of comments
 
     const NoComments = <Text style={{textAlign: 'center'}}>No comments yet</Text>;
 
     return (<View style={styles.commentsContainer}>
-      {comments.length ? this._renderCommentsList(comments, this.props.attachments) : NoComments}
+      {comments.length ? this._renderCommentsList(reversed, attachments) : NoComments}
     </View>);
   }
 }

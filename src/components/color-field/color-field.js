@@ -3,6 +3,7 @@ import {View, Text, StyleSheet} from 'react-native';
 import React, {PropTypes} from 'react';
 
 export const SIZE = 20;
+export const NO_COLOR_ID = '0';
 
 export default class ColorField extends React.Component {
   static propTypes = {
@@ -24,9 +25,20 @@ export default class ColorField extends React.Component {
   }
 
   render() {
+    const {color, fullText, style} = this.props;
+    if (color.id === NO_COLOR_ID && !fullText) {
+      return null;
+    }
+
     return (
-      <View style={[styles.wrapper, {backgroundColor: this._getBackgroundColor()}, this.props.style]}>
-        <Text style={[styles.text, {color: this._getForegroundColor()}]} numberOfLines={1}>{this._getFieldLetter()}</Text>
+      <View style={[styles.wrapper, {backgroundColor: this._getBackgroundColor()}, style]}>
+        <Text
+          style={[styles.text, {color: this._getForegroundColor()}]}
+          numberOfLines={1}
+          testID="color-field-value"
+        >
+          {this._getFieldLetter()}
+          </Text>
       </View>
     );
   }

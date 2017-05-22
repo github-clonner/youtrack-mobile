@@ -1,23 +1,27 @@
+/* @flow */
 import {View, Text, TouchableOpacity} from 'react-native';
-import React, {Component, PropTypes} from 'react';
+import React, {Component} from 'react';
 import styles from './linked-issues.style';
 import {COLOR_FONT_GRAY} from '../variables/variables';
+import type {IssueLink} from '../../flow/CustomFields';
+import type {IssueOnList} from '../../flow/Issue';
+
+type Props = {
+  links: Array<IssueLink>,
+  onIssueTap: (issue: IssueOnList) => any
+}
 
 export default class LinkedIssues extends Component {
-  static propTypes = {
-    links: PropTypes.array.isRequired,
-    onIssueTap: PropTypes.func,
-    onLinkRemove: PropTypes.func
-  }
+  props: Props;
 
-  _getLinkTitle(link) {
+  _getLinkTitle(link: IssueLink) {
     if (link.direction === 'OUTWARD' || link.direction === 'BOTH') {
       return link.linkType.localizedSourceToTarget || link.linkType.sourceToTarget;
     }
     return link.linkType.localizedTargetToSource || link.linkType.targetToSource;
   }
 
-  _renderLinkedIssue(issue) {
+  _renderLinkedIssue(issue: IssueOnList) {
     const issueTextStyle = issue.resolved ? {color: COLOR_FONT_GRAY, textDecorationLine: 'line-through'}: null;
 
     return <TouchableOpacity key={issue.id}
@@ -29,7 +33,7 @@ export default class LinkedIssues extends Component {
     </TouchableOpacity>;
   }
 
-  _renderLinkType(link) {
+  _renderLinkType(link: IssueLink) {
     return <View key={link.id} style={styles.linkedIssuesSection}>
       <Text style={styles.relationTitle}>{this._getLinkTitle(link)}:</Text>
       {link.trimmedIssues.map(issue => this._renderLinkedIssue(issue))}

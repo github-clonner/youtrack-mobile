@@ -1,5 +1,6 @@
-import {Navigator} from 'react-native';
 import React, {createElement} from 'react';
+import {StackNavigator, NavigationActions} from 'react-navigation/lib/react-navigation';
+import transitionConfigs from 'react-navigation/lib/views/TransitionConfigs';
 
 /**
  * Route singleton
@@ -11,16 +12,33 @@ class Router {
     this.routes = {};
   }
 
-  setNavigator(navigator) {
+  setNavigator = (navigator) => {
+    if (!navigator) {
+      return;
+    }
     this._navigator = navigator;
   }
 
-  registerRoute({name, component, props, type, animation}) {
+  getTransitionConfig = () => {
+    if (!this._navigator) {
+      return null;
+    }
+    const {nav} = this._navigator.state;
+    const currentRouteName = nav.routes[nav.index].routeName;
+
+    const route = this.routes[currentRouteName];
+
+    if (route.modal || this._modalTransition) {
+      return transitionConfigs.defaultTransitionConfig(null, null, true);
+    }
+  }
+
+  registerRoute({name, component, props, type, modal}) {
     this.routes[name] = {
-      component,
+      screen: ({navigation}) => createElement(component, navigation.state.params),
       type,
       props,
-      animation
+      modal
     };
 
     if (!this[name]) {
@@ -28,9 +46,17 @@ class Router {
     }
   }
 
+  finalizeRoutes(initialRouteName) {
+    this.AppNavigator = StackNavigator(this.routes, {
+      initialRouteName,
+      headerMode: 'none',
+      transitionConfig: this.getTransitionConfig,
+    });
+  }
+
   navigate(routeName, props) {
     if (!this._navigator) {
-      throw `call setNavigator(navigator) first!`;
+      throw `Router.navigate: call setNavigator(navigator) first!`;
     }
 
     if (!this.routes[routeName]) {
@@ -40,21 +66,21 @@ class Router {
     const newRoute = Object.assign({}, this.routes[routeName]);
     newRoute.props = Object.assign({}, newRoute.props, props);
 
-    if (newRoute.type === 'replace') {
-      return this._navigator.replace(newRoute);
-    }
     if (newRoute.type === 'reset') {
-      return this._navigator.resetTo(newRoute);
+      return this._navigator.dispatch(NavigationActions.reset({
+        index: 0,
+        actions: [NavigationActions.navigate({routeName, params: newRoute.props})]
+      }));
     }
 
-    return this._navigator.push(newRoute);
+    this._navigator.dispatch(NavigationActions.navigate({routeName, params: newRoute.props}));
   }
 
   pop() {
-    if (this._navigator.state.presentedIndex < 1) {
+    if (this._navigator.state.nav.routes.length <= 1) {
       return false;
     }
-    this._navigator.pop();
+    this._navigator.dispatch(NavigationActions.back());
     return true;
   }
 
@@ -62,20 +88,9 @@ class Router {
     return this._navigator;
   }
 
-  renderNavigatorView({initialRoute}) {
-    return <Navigator
-      initialRoute={initialRoute}
-      configureScene={(route) => {
-          return route.animation || Navigator.SceneConfigs.FloatFromRight;
-        }
-      }
-      renderScene={(route, navigator) => {
-          this.setNavigator(navigator);
-
-          return createElement(route.component, route.props);
-        }
-      }
-    />;
+  renderNavigatorView() {
+    const {AppNavigator} = this;
+    return <AppNavigator ref={this.setNavigator}/>;
   }
 }
 

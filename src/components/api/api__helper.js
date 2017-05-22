@@ -1,7 +1,10 @@
 /* @flow */
+import {handleRelativeUrl} from '../config/config';
+import objectWalk from 'object-walk';
+import type {IssueOnList, AnyIssue, ServersideSuggestion, TransformedSuggestion} from '../../flow/Issue';
 
 const API = {
-  makeFieldHash: (issue: IssueOnList) => {
+  makeFieldHash: (issue: IssueOnList): Object => {
     const fieldHash = {};
     (issue.fields || []).forEach(field => {
       const fieldName = field.projectCustomField.field.name;
@@ -13,6 +16,34 @@ const API = {
   fillIssuesFieldHash: (issues: Array<IssueOnList> = []) => {
     issues.forEach(issue => issue.fieldHash = API.makeFieldHash(issue));
     return issues;
+  },
+
+  convertQueryAssistSuggestions: (suggestions: Array<ServersideSuggestion>): Array<TransformedSuggestion> => {
+    return suggestions.map(suggestion => {
+      return {
+        prefix: suggestion.pre || '',
+        option: suggestion.o || '',
+        suffix: suggestion.suf || '',
+        description: suggestion.hd || suggestion.d || '',
+        matchingStart: suggestion.ms,
+        matchingEnd: suggestion.me,
+        caret: suggestion.cp,
+        completionStart: suggestion.cs,
+        completionEnd: suggestion.ce
+      };
+    });
+  },
+
+  convertRelativeUrls: (items: Array<Object> = [], urlField: string, backendUrl: string) => {
+    return items.map(item => {
+      if (!item[urlField]) {
+        return item;
+      }
+      return {
+        ...item,
+        [urlField]: handleRelativeUrl(item[urlField], backendUrl)
+      };
+    });
   },
 
   //Ported from youtrack frontend
@@ -77,6 +108,25 @@ const API = {
       fieldType = fieldType.replace('Single', 'Multi');
     }
     return fieldType;
+  },
+
+  getIssueId(issue: AnyIssue) {
+    return `${issue.project.shortName}-${issue.numberInProject}`;
+  },
+
+  patchAllRelativeAvatarUrls(data: Object, backendUrl: string) {
+    //TODO: potentially slow place
+    objectWalk(data, (value, propertyName, obj) => {
+      if (typeof value === 'string' && value.indexOf('/hub/api/rest/avatar/') === 0) {
+        obj[propertyName] = handleRelativeUrl(obj[propertyName], backendUrl);
+      }
+    });
+
+    return data;
+  },
+
+  stripHtml(commandPreview: string) {
+    return commandPreview.replace(/<\/?[^>]+(>|$)/g, '');
   }
 };
 

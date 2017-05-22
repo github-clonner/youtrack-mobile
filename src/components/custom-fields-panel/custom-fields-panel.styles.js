@@ -1,24 +1,39 @@
 import {StyleSheet} from 'react-native';
-import {UNIT, FOOTER_HEIGHT, COLOR_PINK, COLOR_FONT, COLOR_GRAY} from '../../components/variables/variables';
+import {UNIT, FOOTER_HEIGHT, COLOR_PINK, COLOR_SELECTED_DARK, COLOR_TRANSPARENT_BLACK, COLOR_FONT_ON_BLACK, COLOR_BLACK, COLOR_DARK_BORDER} from '../../components/variables/variables';
 
 const SAVING_ALPHA = '70';
+const DONE_BUTTON_HEIGHT = 24;
 
 export default StyleSheet.create({
+  placeholder: {
+    height: FOOTER_HEIGHT,
+    backgroundColor: COLOR_BLACK
+  },
   customFieldsPanel: {
     paddingLeft: UNIT,
     flexDirection: 'row',
-    backgroundColor: '#FFF',
+    backgroundColor: COLOR_BLACK,
     height: FOOTER_HEIGHT,
     borderTopWidth: 1,
-    borderColor: COLOR_GRAY
+    borderColor: COLOR_DARK_BORDER,
+    flexShrink: 0
   },
-  editorViewContainer: {
-    backgroundColor: '#FFFFFFF0',
-    position: 'absolute',
+
+  modal: {
+    flex: 1,
+    justifyContent: 'space-between',
     left: 0,
-    right: 0
+    right: 0,
+    bottom: 0
+  },
+
+  editorViewContainer: {
+    flex: 1,
+    flexShrink: 1,
+    backgroundColor: COLOR_TRANSPARENT_BLACK
   },
   calendar: {
+    backgroundColor: '#FFFFFFF0',
     padding: UNIT*2
   },
   clearDate: {
@@ -27,14 +42,14 @@ export default StyleSheet.create({
     color: COLOR_PINK
   },
   simpleValueInput: {
-    flex: 1,
+    paddingTop: 2,
+    paddingBottom: 2,
+
     height: UNIT * 4,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: COLOR_PINK,
     margin: UNIT,
     paddingLeft: UNIT,
-    color: COLOR_FONT
+    backgroundColor: COLOR_SELECTED_DARK,
+    color: COLOR_FONT_ON_BLACK
   },
   savingFieldIndicator: {
     backgroundColor: `#CCCCCC${SAVING_ALPHA}`,
@@ -43,5 +58,15 @@ export default StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0
+  },
+  doneButton: {
+    backgroundColor: COLOR_PINK,
+    padding: UNIT
+  },
+  doneButtonText: {
+    height: DONE_BUTTON_HEIGHT,
+    fontSize: 20,
+    color: COLOR_FONT_ON_BLACK,
+    textAlign: 'center'
   }
 });

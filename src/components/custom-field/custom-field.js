@@ -1,7 +1,7 @@
 import {TouchableOpacity, View, Text} from 'react-native';
 import React, {PropTypes, Component} from 'react';
 import styles from './custom-field.styles';
-import NumberPolifyll from 'core-js/es6/number';
+import {NO_COLOR_ID} from '../color-field/color-field';
 
 export default class CustomField extends Component {
   static propTypes = {
@@ -11,13 +11,24 @@ export default class CustomField extends Component {
     active: PropTypes.bool
   }
 
-  _getValue(value) {
+  _getFieldType(field: CustomField) {
+    if (!field.projectCustomField.field.fieldType) {
+      return null;
+    }
+
+    return field.projectCustomField.field.fieldType.valueType;
+  }
+
+  _getValue(value, fieldType) {
     const field = this.props.field;
     const emptyValue = field.projectCustomField.emptyFieldText;
 
     if (value) {
-      if (NumberPolifyll.isInteger(value)) {
+      if (fieldType === 'date') {
         return new Date(value).toLocaleDateString();
+      }
+      if (fieldType === 'integer' || fieldType === 'string' || fieldType === 'float') {
+        return value;
       }
       return value.name || value.fullName || value.login || value.presentation;
     }
@@ -30,42 +41,64 @@ export default class CustomField extends Component {
     return field.projectCustomField.field.name;
   }
 
-  getValueStyle(value) {
-    if (!value || !value.color) {
+  _renderColorMaker(value) {
+    const values = [].concat(value);
+    if (!values || !values.length) {
       return;
     }
 
-    return {
-      color: value.color.foreground,
-      backgroundColor: value.color.background
+    const renderSingleMarker = (val) => {
+      if (!val || !val.color) {
+        return;
+      }
+      if (val.color.id === NO_COLOR_ID) {
+        return;
+      }
+      return <View key={val.id} style={[styles.colorMarker, {backgroundColor: val.color.background}]}/>;
     };
+
+    return (
+      <View style={styles.colorMarkerContainer}>
+        {values.map(renderSingleMarker)}
+      </View>
+    );
   }
 
-  _renderValue(value) {
+  _renderValue(value, fieldType: string) {
+    const {active} = this.props;
+    const textStyle = [styles.valueText, active && styles.valueTextActive];
+
+    const renderOneValue = (val) => {
+      return <Text style={textStyle} testID="value">{this._getValue(val, fieldType)}</Text>;
+    };
+
     if (Array.isArray(value)) {
       if (!value.length) {
         return this._renderValue(null);
       }
       return value.map((val, ind) => {
         return [
-          <Text key={val.id} style={[styles.valueText, this.getValueStyle(val)]}
-                testID="value">{this._getValue(val)}</Text>,
-          ind === value.length - 1 ? <Text> </Text> : <Text>, </Text>
+          renderOneValue(val),
+          <Text style={textStyle} key={val}>
+            {ind === value.length - 1 ? ' ' : ', '}
+          </Text>
         ];
       });
     }
 
-    return <Text style={[styles.valueText, this.getValueStyle(value)]} testID="value">{this._getValue(value)}</Text>;
+    return renderOneValue(value);
   }
 
   render() {
+    const {field, active} = this.props;
     return (
       <TouchableOpacity
-        style={[styles.wrapper, this.props.active ? styles.wrapperActive : null]}
+        style={[styles.wrapper, active ? styles.wrapperActive : null]}
         onPress={this.props.onPress}
         disabled={this.props.disabled}>
-        <View style={styles.valuesWrapper}>{this._renderValue(this.props.field.value)}</View>
-        <Text style={[styles.keyText, this.props.disabled ? styles.valueTextDisabled : null]} testID="name">{this._getKey()}</Text>
+          {this._renderColorMaker(field.value)}
+          <View style={styles.valuesWrapper}>{this._renderValue(field.value, this._getFieldType(field))}</View>
+          <Text style={[styles.keyText, this.props.disabled ? styles.valueTextDisabled : null]} testID="name">{this._getKey()}</Text>
       </TouchableOpacity>
     );
   }

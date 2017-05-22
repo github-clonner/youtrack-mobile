@@ -7,18 +7,27 @@ global.ErrorUtils = {
   setGlobalHandler: () => {}
 };
 
-function makeRenderable(componentClass) {
+function makeRenderable(componentClass, type) {
   return class extends componentClass {
     render() {
-      return <div>{this.props.children}</div>;
+      const {children, testID} = this.props;
+      const props = {
+        type
+      };
+      if (testID) {
+        props['data-test'] = testID;
+      }
+
+      return <div {...props}>{children}</div>;
     }
   };
 }
 
 
-ReactNativeMocks.View = makeRenderable(ReactNativeMocks.View);
-ReactNativeMocks.Text = makeRenderable(ReactNativeMocks.Text);
+ReactNativeMocks.View = makeRenderable(ReactNativeMocks.View, 'View');
+ReactNativeMocks.Text = makeRenderable(ReactNativeMocks.Text, 'Text');
 ReactNativeMocks.Platform.select = (obj) => obj.ios;
+ReactNativeMocks.I18nManager = {isRTL: false};
 
 ReactNativeMocks.NativeModules.RNDeviceInfo = {
   uniqueId: 'unique-id',

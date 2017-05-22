@@ -1,6 +1,6 @@
 import {StyleSheet, Platform} from 'react-native';
 
-import {UNIT, COLOR_FONT_GRAY, COLOR_FONT, COLOR_PINK, COLOR_GRAY} from '../../components/variables/variables';
+import {UNIT, COLOR_FONT_GRAY, COLOR_FONT_ON_BLACK, COLOR_FONT, COLOR_PINK, COLOR_GRAY} from '../../components/variables/variables';
 import {SIZE as COLOR_FIELD_SIZE} from '../../components/color-field/color-field';
 
 export default StyleSheet.create({
@@ -13,12 +13,13 @@ export default StyleSheet.create({
   },
   errorTitle: {
     marginTop: UNIT*2,
-    color: 'red',
     fontSize: 16,
     textAlign: 'center'
   },
   errorContent: {
     margin: UNIT,
+    marginTop: UNIT/4,
+    color: COLOR_FONT_GRAY,
     fontSize: 14,
     textAlign: 'center'
   },
@@ -31,6 +32,7 @@ export default StyleSheet.create({
     color: COLOR_PINK
   },
   headerText: {
+    color: COLOR_FONT_ON_BLACK,
     fontSize: 17
   },
   row: {
@@ -81,7 +83,13 @@ export default StyleSheet.create({
     fontSize: 14,
     color: COLOR_FONT_GRAY
   },
-  loadingMore: {
+  listMessageSmile: {
+    paddingTop: UNIT * 6,
+    fontSize: 36,
+    color: COLOR_FONT,
+    textAlign: 'center'
+  },
+  listFooterMessage: {
     textAlign: 'center',
     padding: UNIT * 2
   }

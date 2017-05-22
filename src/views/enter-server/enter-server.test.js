@@ -42,7 +42,7 @@ describe('EnterServer', () => {
     connectToYouTrack.should.have.been.calledWith('https://foo.bar');
   });
 
-  it('should trip wrapping spaces', async() => {
+  it('should strip wrapping spaces', async() => {
     wrapper.setState({serverUrl: '   foo.bar '});
     wrapper.find('TouchableOpacity').simulate('press');
     await waitForNextTick();
@@ -94,12 +94,27 @@ describe('EnterServer', () => {
     connectToYouTrack.should.have.been.calledWith('http://foo.bar/rest/workflow/version');
   });
 
-  it('should stop and dislpay error if IncompatibleYouTrackError throwed', async() => {
+  it('should stop and display error if IncompatibleYouTrackError throwed', async() => {
     connectPromise = Promise.reject({isIncompatibleYouTrackError: true, message: 'Incompatible youtrack'});
 
     wrapper.find('TouchableOpacity').simulate('press');
     await waitForNextTick();
 
     wrapper.state('error').message.should.equal('Incompatible youtrack');
+  });
+
+  it('should not allow empty input', () => {
+    wrapper.setState({serverUrl: ''});
+    wrapper.instance().isValidInput().should.be.false;
+  });
+
+  it('should not allow AT in server input (to not confuse users with email)', () => {
+    wrapper.setState({serverUrl: 'foo@bar.com'});
+    wrapper.instance().isValidInput().should.be.false;
+  });
+
+  it('should allow not empty input', () => {
+    wrapper.setState({serverUrl: 'someserver'});
+    wrapper.instance().isValidInput().should.be.true;
   });
 });

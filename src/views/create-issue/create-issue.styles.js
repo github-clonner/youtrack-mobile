@@ -1,5 +1,5 @@
 import {StyleSheet} from 'react-native';
-import {UNIT, COLOR_PINK, COLOR_FONT_GRAY, COLOR_FONT, COLOR_GRAY} from '../../components/variables/variables';
+import {UNIT, COLOR_PINK, COLOR_FONT, COLOR_FONT_GRAY, COLOR_GRAY} from '../../components/variables/variables';
 
 const ATTACHING_IMAGE_ALPHA = '70';
 
@@ -8,23 +8,10 @@ export default StyleSheet.create({
     flex: 1,
     backgroundColor: '#FFF'
   },
-  summaryInput: {
-    margin: UNIT,
-    padding: UNIT,
-    color: COLOR_FONT,
-    fontSize: 18,
-    height: UNIT * 5
-  },
-  descriptionInput: {
-    height: UNIT * 10,
-    margin: UNIT,
-    padding: UNIT,
-    flex: 1,
-    backgroundColor: '#FFF',
-    color: COLOR_FONT,
-    borderColor: 'black',
-    textAlignVertical: 'top',
-    fontSize: 14
+  issueSummary: {
+    marginTop: UNIT,
+    marginLeft: UNIT * 2,
+    marginRight: UNIT * 2
   },
   disabledCreateButton: {
     color: COLOR_FONT_GRAY
@@ -39,7 +26,8 @@ export default StyleSheet.create({
     backgroundColor: COLOR_GRAY
   },
   attachesContainer: {
-    margin: UNIT,
+    marginTop: 0,
+    marginBottom: UNIT,
     marginLeft: UNIT * 2,
     marginRight: UNIT * 2
   },
@@ -48,12 +36,13 @@ export default StyleSheet.create({
     position: 'absolute',
     top: 0,
     left: 0,
-    right: UNIT*2,
+    right: UNIT,
     bottom: 0
   },
   attachButtonsContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    marginTop: UNIT,
     marginRight: UNIT
   },
   attachButton: {
@@ -85,5 +74,22 @@ export default StyleSheet.create({
   actionIcon: {
     width: 16,
     height: 16
-  }
+  },
+  selectProjectButton: {
+    paddingTop: UNIT*2,
+    paddingBottom: UNIT*2,
+    marginLeft: UNIT*2,
+    marginRight: UNIT*2,
+    justifyContent: 'space-between',
+    flexDirection: 'row'
+  },
+  selectProjectText: {
+    color: COLOR_FONT,
+    fontSize: 16
+  },
+  selectProjectIcon: {
+    alignSelf: 'flex-end',
+    width: 16,
+    height: 16
+  },
 });
