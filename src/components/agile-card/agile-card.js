@@ -23,7 +23,7 @@ type State = {
 }
 
 export default class AgileCard extends PureComponent<void, Props, State> {
-  panResponder: Object;
+  panResponder: PanResponder;
   activateDragTimeOut: number;
 
   state = {
