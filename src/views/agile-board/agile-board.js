@@ -48,7 +48,8 @@ type Props = AgilePageState & {
 
 type State = {
   zoomedOut: boolean,
-  draggingIssueId: ?String
+  draggingIssueId: ?String,
+  position: Animated.ValueXY
 };
 
 class AgileBoard extends Component {
@@ -93,7 +94,6 @@ class AgileBoard extends Component {
   };
 
   onPanResponderRelease = () => {
-    console.info('RELEASE');
     this.state.position.setValue({x: 0, y: 0});
     this.setState({draggingIssueId: null});
   };
