@@ -75,6 +75,7 @@
 		"react-native-animatable": "1.2.2",
 		"react-native-calendars": "1.5.3",
 		"react-native-device-info": "0.11.0",
+		"react-native-drag-drop": "deanmcpherson/react-native-drag-drop#09a11ecbb28da9a80cd79710045609000c06bfa7",
 		"react-native-drawer": "2.3.0",
 		"react-native-easy-toast": "1.0.6",
 		"react-native-gallery": "huston007/react-native-gallery#026ed1ebab354fce7c65e980637e34d8d01d0b2f",

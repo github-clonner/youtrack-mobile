@@ -11,12 +11,14 @@ import styles from './agile-card.styles';
 type Props = {
   style?: any,
   issue: IssueOnList,
-  isDragging: boolean
+  dragging?: boolean // This property is set by <Draggable/> wrapper
 };
 
 export default class AgileCard extends PureComponent<void, Props, void> {
+  displayName = 'AgileCard';
+
   render() {
-    const {issue, style, isDragging} = this.props;
+    const {issue, style, dragging} = this.props;
     const priorityField = getPriotityField(issue);
 
     const issueId = priorityField
@@ -41,7 +43,7 @@ export default class AgileCard extends PureComponent<void, Props, void> {
       <Animated.View
         style={[
           styles.card,
-          isDragging && styles.draggingCard,
+          dragging && styles.draggingCard,
           style
         ]}
       >

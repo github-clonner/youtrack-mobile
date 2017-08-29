@@ -1,6 +1,7 @@
 /* @flow */
-import {ScrollView, View, Text, Image, RefreshControl, TouchableOpacity, ActivityIndicator, PanResponder, Animated} from 'react-native';
+import {ScrollView, View, Text, Image, RefreshControl, TouchableOpacity, ActivityIndicator, Animated} from 'react-native';
 import React, {Component} from 'react';
+import {DragContainer, Draggable} from 'react-native-drag-drop';
 import Modal from 'react-native-root-modal';
 import usage from '../../components/usage/usage';
 import Header from '../../components/header/header';
@@ -48,7 +49,6 @@ type Props = AgilePageState & {
 
 type State = {
   zoomedOut: boolean,
-  draggingIssueId: ?String,
   position: Animated.ValueXY
 };
 
@@ -56,48 +56,20 @@ class AgileBoard extends Component {
   props: Props;
   state: State;
   boardHeader: ?BoardHeader;
-  panResponder: PanResponder;
 
   constructor(props: Props) {
     super(props);
 
     this.state = {
       zoomedOut: false,
-      draggingIssueId: null,
       position: new Animated.ValueXY()
     };
-
-    this.panResponder = PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
-      onPanResponderTerminationRequest: () => false,
-      onPanResponderMove: this.onPanResponderMove,
-      onPanResponderRelease: this.onPanResponderRelease,
-      onPanResponderTerminate: this.onPanResponderRelease
-    });
   }
 
   componentDidMount() {
     usage.trackScreenView(CATEGORY_NAME);
     this.props.onLoadBoard();
   }
-
-  onDragStart = (issue: IssueOnList) => {
-    this.setState({draggingIssueId: issue.id});
-  };
-
-  onPanResponderMove = (e: Event, gestureState: Object) => {
-    if (!this.state.draggingIssueId) {
-      return;
-    }
-    this.state.position.setValue({x: gestureState.dx, y: gestureState.dy});
-  };
-
-  onPanResponderRelease = () => {
-    this.state.position.setValue({x: 0, y: 0});
-    this.setState({draggingIssueId: null});
-  };
-
 
   _onScroll = (event) => {
     const {nativeEvent} = event;
@@ -211,7 +183,6 @@ class AgileBoard extends Component {
 
   _renderBoard(sprint: SprintFull) {
     const board: Board = sprint.board;
-    const {draggingIssueId} = this.state;
 
     const commonRowProps = {
       collapsedColumnIds: board.columns.filter(col => col.collapsed).map(col => col.id),
@@ -219,20 +190,17 @@ class AgileBoard extends Component {
       onTapCreateIssue: this.props.createCardForCell,
       onCollapseToggle: this.props.onRowCollapseToggle,
       renderIssueCard: (issue: IssueOnList) => {
-        const isDragging = draggingIssueId === issue.id;
         return (
-          <TouchableOpacity
+          <Draggable
             key={issue.id}
             activeOpacity={0.6}
             onPress={() => this._onTapIssue(issue)}
-            onLongPress={() => this.onDragStart(issue)}
           >
             <AgileCard
               issue={issue}
-              style={[styles.card, isDragging && this.state.position.getLayout()]}
-              isDragging={isDragging}
+              style={[styles.card]}
             />
-          </TouchableOpacity>
+          </Draggable>
         );
       }
     };
@@ -258,12 +226,11 @@ class AgileBoard extends Component {
 
   render() {
     const {sprint, isLoadingMore, isSprintSelectOpen, noBoardSelected} = this.props;
-    const {draggingIssueId} = this.state;
 
     const {zoomedOut} = this.state;
     return (
       <Menu>
-        <View style={styles.container}>
+        <DragContainer style={styles.container}>
           {this._renderHeader()}
 
           {sprint && this._renderBoardHeader(sprint)}
@@ -271,12 +238,10 @@ class AgileBoard extends Component {
           <ScrollView
             refreshControl={this._renderRefreshControl()}
             onScroll={this._onScroll}
-            scrollEnabled={!draggingIssueId}
             scrollEventThrottle={30}
             contentContainerStyle={[
               {minWidth: zoomedOut? null: this._getScrollableWidth()}
             ]}
-            {...this.panResponder.panHandlers}
           >
             {noBoardSelected && this._renderNoSprint()}
             {sprint && this._renderBoard(sprint)}
@@ -292,7 +257,7 @@ class AgileBoard extends Component {
           </View>
 
           {isSprintSelectOpen && this._renderSelect()}
-        </View>
+        </DragContainer>
       </Menu>
     );
   }

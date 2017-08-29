@@ -2,6 +2,7 @@ import React, {PureComponent} from 'react';
 import {View, Image, TouchableOpacity} from 'react-native';
 import {getPriotityField} from '../issue-formatter/issue-formatter';
 import {addGray} from '../icon/icon';
+import {DropZone} from 'react-native-drag-drop';
 
 import type {BoardCell} from '../../flow/Agile';
 
@@ -18,7 +19,7 @@ type Props = {
 }
 
 type State = {
-
+  draggingOver: boolean
 };
 
 function renderIssueSquare(issue: IssueOnList) {
@@ -32,27 +33,37 @@ function renderIssueSquare(issue: IssueOnList) {
 }
 
 export default class Cell extends PureComponent<void, Props, State> {
+  state = {
+    draggingOver: false
+  }
+
   render() {
     const {cell, collapsed, onTapCreateIssue, lastColumn, renderIssueCard} = this.props;
 
     return (
-      <View
+      <DropZone
         style={[
           styles.column,
           collapsed && styles.columnCollapsed,
-          lastColumn && styles.columnWithoutBorder
+          lastColumn && styles.columnWithoutBorder,
+          this.state.draggingOver && {backgroundColor: 'silver'}
         ]}
+        onDrop={() => {}}
+        onEnter={() => this.setState({draggingOver: true})}
+        onLeave={() => this.setState({draggingOver: false})}
       >
-        {cell.issues.map(collapsed ? renderIssueSquare : renderIssueCard)}
+        <View>
+          {cell.issues.map(collapsed ? renderIssueSquare : renderIssueCard)}
 
-        {!collapsed &&
-          <TouchableOpacity
-            onPress={() => onTapCreateIssue(cell.column.id, cell.id)}
-            style={styles.addCardButton}
-          >
-            <Image style={styles.addCardIcon} source={addGray} />
-          </TouchableOpacity>}
-      </View>
+          {!collapsed &&
+            <TouchableOpacity
+              onPress={() => onTapCreateIssue(cell.column.id, cell.id)}
+              style={styles.addCardButton}
+            >
+              <Image style={styles.addCardIcon} source={addGray} />
+            </TouchableOpacity>}
+        </View>
+      </DropZone>
     );
   }
 }
