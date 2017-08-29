@@ -1,5 +1,5 @@
 /* @flow */
-import {ScrollView, View, Text, Image, RefreshControl, TouchableOpacity, ActivityIndicator} from 'react-native';
+import {ScrollView, View, Text, Image, RefreshControl, TouchableOpacity, ActivityIndicator, PanResponder, Animated} from 'react-native';
 import React, {Component} from 'react';
 import Modal from 'react-native-root-modal';
 import usage from '../../components/usage/usage';
@@ -48,20 +48,32 @@ type Props = AgilePageState & {
 
 type State = {
   zoomedOut: boolean,
-  isDragging: boolean
+  draggingIssueId: ?String
 };
 
 class AgileBoard extends Component {
   props: Props;
   state: State;
   boardHeader: ?BoardHeader;
+  panResponder: PanResponder;
 
   constructor(props: Props) {
     super(props);
+
     this.state = {
       zoomedOut: false,
-      isDragging: false
+      draggingIssueId: null,
+      position: new Animated.ValueXY()
     };
+
+    this.panResponder = PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderTerminationRequest: () => false,
+      onPanResponderMove: this.onPanResponderMove,
+      onPanResponderRelease: this.onPanResponderRelease,
+      onPanResponderTerminate: this.onPanResponderRelease
+    });
   }
 
   componentDidMount() {
@@ -69,13 +81,23 @@ class AgileBoard extends Component {
     this.props.onLoadBoard();
   }
 
-  onDragStart = () => {
-    this.setState({isDragging: true});
+  onDragStart = (issue: IssueOnList) => {
+    this.setState({draggingIssueId: issue.id});
   };
 
-  onDragStop = () => {
-    this.setState({isDragging: false});
+  onPanResponderMove = (e: Event, gestureState: Object) => {
+    if (!this.state.draggingIssueId) {
+      return;
+    }
+    this.state.position.setValue({x: gestureState.dx, y: gestureState.dy});
   };
+
+  onPanResponderRelease = () => {
+    console.info('RELEASE');
+    this.state.position.setValue({x: 0, y: 0});
+    this.setState({draggingIssueId: null});
+  };
+
 
   _onScroll = (event) => {
     const {nativeEvent} = event;
@@ -189,6 +211,7 @@ class AgileBoard extends Component {
 
   _renderBoard(sprint: SprintFull) {
     const board: Board = sprint.board;
+    const {draggingIssueId} = this.state;
 
     const commonRowProps = {
       collapsedColumnIds: board.columns.filter(col => col.collapsed).map(col => col.id),
@@ -196,13 +219,18 @@ class AgileBoard extends Component {
       onTapCreateIssue: this.props.createCardForCell,
       onCollapseToggle: this.props.onRowCollapseToggle,
       renderIssueCard: (issue: IssueOnList) => {
+        const isDragging = draggingIssueId === issue.id;
         return (
-          <TouchableOpacity key={issue.id} onPress={() => this._onTapIssue(issue)}>
+          <TouchableOpacity
+            key={issue.id}
+            activeOpacity={0.6}
+            onPress={() => this._onTapIssue(issue)}
+            onLongPress={() => this.onDragStart(issue)}
+          >
             <AgileCard
               issue={issue}
-              style={styles.card}
-              onDragStart={this.onDragStart}
-              onDragStop={this.onDragStop}
+              style={[styles.card, isDragging && this.state.position.getLayout()]}
+              isDragging={isDragging}
             />
           </TouchableOpacity>
         );
@@ -230,7 +258,7 @@ class AgileBoard extends Component {
 
   render() {
     const {sprint, isLoadingMore, isSprintSelectOpen, noBoardSelected} = this.props;
-    const {isDragging} = this.state;
+    const {draggingIssueId} = this.state;
 
     const {zoomedOut} = this.state;
     return (
@@ -243,11 +271,12 @@ class AgileBoard extends Component {
           <ScrollView
             refreshControl={this._renderRefreshControl()}
             onScroll={this._onScroll}
-            scrollEnabled={!isDragging}
+            scrollEnabled={!draggingIssueId}
             scrollEventThrottle={30}
             contentContainerStyle={[
               {minWidth: zoomedOut? null: this._getScrollableWidth()}
             ]}
+            {...this.panResponder.panHandlers}
           >
             {noBoardSelected && this._renderNoSprint()}
             {sprint && this._renderBoard(sprint)}

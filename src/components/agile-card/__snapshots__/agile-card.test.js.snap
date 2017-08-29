@@ -1,7 +1,7 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
 exports[`<AgileCard/> should render snapshot 1`] = `
-<View
+<AnimatedComponent
   style={
     Array [
       Object {
@@ -9,6 +9,7 @@ exports[`<AgileCard/> should render snapshot 1`] = `
         "height": 131,
         "padding": 8,
       },
+      undefined,
       undefined,
     ]
   }
@@ -61,5 +62,5 @@ exports[`<AgileCard/> should render snapshot 1`] = `
       }
     }
   />
-</View>
+</AnimatedComponent>
 `;
