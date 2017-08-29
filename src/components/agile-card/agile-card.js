@@ -1,12 +1,12 @@
 /* @flow */
-import {View, Image, Text, StyleSheet, PanResponder, Animated} from 'react-native';
+import {View, Image, Text, PanResponder, Animated} from 'react-native';
 import React, {PureComponent} from 'react';
-import {UNIT, COLOR_FONT} from '../variables/variables';
 import ColorField from '../color-field/color-field';
 import ApiHelper from '../api/api__helper';
 import type {IssueOnList} from '../../flow/Issue';
 import type {CustomFieldValue} from '../../flow/CustomFields';
 import {getPriotityField, getAssigneeField} from '../issue-formatter/issue-formatter';
+import styles from './agile-card.styles';
 
 const ACTIVATE_TIMEOUT = 600;
 
@@ -130,39 +130,3 @@ export default class AgileCard extends PureComponent<void, Props, State> {
     );
   }
 }
-
-const styles = StyleSheet.create({
-  card: {
-    flexDirection: 'column',
-    padding: UNIT,
-    height: 131
-  },
-  draggingCard: {
-    transform: [
-      {rotate: '-7deg'}
-    ]
-  },
-  summary: {
-    color: COLOR_FONT,
-    fontSize: 13,
-    paddingTop: UNIT/2,
-    paddingBottom: UNIT/2
-  },
-  colorFieldContainer: {
-    flexDirection: 'row'
-  },
-  issueIdColorField: {
-    paddingLeft: UNIT/2,
-    paddingRight: UNIT/2,
-    width: null, //Removes fixed width of usual color field
-  },
-  assignees: {
-    flexDirection: 'row',
-    height: 40
-  },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20
-  }
-});
