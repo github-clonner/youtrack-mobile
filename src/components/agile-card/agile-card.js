@@ -1,5 +1,5 @@
 /* @flow */
-import {View, Image, Text, StyleSheet} from 'react-native';
+import {View, Image, Text, StyleSheet, PanResponder, Animated} from 'react-native';
 import React, {PureComponent} from 'react';
 import {UNIT, COLOR_FONT} from '../variables/variables';
 import ColorField from '../color-field/color-field';
@@ -8,14 +8,78 @@ import type {IssueOnList} from '../../flow/Issue';
 import type {CustomFieldValue} from '../../flow/CustomFields';
 import {getPriotityField, getAssigneeField} from '../issue-formatter/issue-formatter';
 
+const ACTIVATE_TIMEOUT = 600;
+
 type Props = {
   style?: any,
-  issue: IssueOnList
+  issue: IssueOnList,
+  onDragStart: () => any,
+  onDragStop: () => any
 };
 
-export default class AgileCard extends PureComponent<void, Props, void> {
+type State = {
+  position: Animated.ValueXY,
+  isDragging: boolean
+}
+
+export default class AgileCard extends PureComponent<void, Props, State> {
+  panResponder: Object;
+  activateDragTimeOut: number;
+
+  state = {
+    position: new Animated.ValueXY(),
+    isDragging: false
+  };
+
+  constructor() {
+    super();
+
+    this.panResponder = PanResponder.create({
+      onPanResponderGrant: this.activateDragOnLongPress,
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderMove: this.onPanResponderMove,
+      onPanResponderTerminationRequest: () => false,
+      onPanResponderRelease: this.onPanResponderRelease,
+      onPanResponderTerminate: this.onPanResponderRelease
+    });
+  }
+
+  activateDragOnLongPress = (e: Event, gestureState: Object) => {
+    this.activateDragTimeOut = setTimeout(this.enterDragMode, ACTIVATE_TIMEOUT);
+  };
+
+  onPanResponderMove = (e: Event, gestureState: Object) => {
+    clearTimeout(this.activateDragTimeOut);
+    if (!this.state.isDragging) {
+      return;
+    }
+    this.state.position.setValue({x: gestureState.dx, y: gestureState.dy});
+  };
+
+  onPanResponderRelease = (e: Event, gesture: Object) => {
+    clearTimeout(this.activateDragTimeOut);
+    this.exitDragMode();
+  }
+
+  enterDragMode = () => {
+    this.setState({isDragging: true});
+    this.props.onDragStart();
+  };
+
+  exitDragMode() {
+    this.setState({isDragging: false});
+
+    Animated.spring(this.state.position, {
+      toValue: {x: 0, y: 0}
+    }).start();
+
+    this.props.onDragStop();
+  }
+
   render() {
-    const { issue, style } = this.props;
+    const {issue, style} = this.props;
+    const {isDragging} = this.state;
     const priorityField = getPriotityField(issue);
 
     const issueId = priorityField
@@ -37,7 +101,15 @@ export default class AgileCard extends PureComponent<void, Props, void> {
       .filter(item => item);
 
     return (
-      <View style={[styles.card, style]}>
+      <Animated.View
+        style={[
+          this.state.position.getLayout(),
+          styles.card,
+          isDragging && styles.draggingCard,
+          style
+        ]}
+        {...this.panResponder.panHandlers}
+      >
         {issueId}
         <Text numberOfLines={3} style={styles.summary} testID="card-summary">
           {issue.summary}
@@ -54,7 +126,7 @@ export default class AgileCard extends PureComponent<void, Props, void> {
             );
           })}
         </View>
-      </View>
+      </Animated.View>
     );
   }
 }
@@ -64,6 +136,11 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
     padding: UNIT,
     height: 131
+  },
+  draggingCard: {
+    transform: [
+      {rotate: '-7deg'}
+    ]
   },
   summary: {
     color: COLOR_FONT,

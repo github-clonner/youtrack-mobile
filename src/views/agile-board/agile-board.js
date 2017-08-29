@@ -47,7 +47,8 @@ type Props = AgilePageState & {
 };
 
 type State = {
-  zoomedOut: boolean
+  zoomedOut: boolean,
+  isDragging: boolean
 };
 
 class AgileBoard extends Component {
@@ -58,7 +59,8 @@ class AgileBoard extends Component {
   constructor(props: Props) {
     super(props);
     this.state = {
-      zoomedOut: false
+      zoomedOut: false,
+      isDragging: false
     };
   }
 
@@ -66,6 +68,14 @@ class AgileBoard extends Component {
     usage.trackScreenView(CATEGORY_NAME);
     this.props.onLoadBoard();
   }
+
+  onDragStart = () => {
+    this.setState({isDragging: true});
+  };
+
+  onDragStop = () => {
+    this.setState({isDragging: false});
+  };
 
   _onScroll = (event) => {
     const {nativeEvent} = event;
@@ -188,7 +198,12 @@ class AgileBoard extends Component {
       renderIssueCard: (issue: IssueOnList) => {
         return (
           <TouchableOpacity key={issue.id} onPress={() => this._onTapIssue(issue)}>
-            <AgileCard issue={issue} style={styles.card}/>
+            <AgileCard
+              issue={issue}
+              style={styles.card}
+              onDragStart={this.onDragStart}
+              onDragStop={this.onDragStop}
+            />
           </TouchableOpacity>
         );
       }
@@ -215,6 +230,7 @@ class AgileBoard extends Component {
 
   render() {
     const {sprint, isLoadingMore, isSprintSelectOpen, noBoardSelected} = this.props;
+    const {isDragging} = this.state;
 
     const {zoomedOut} = this.state;
     return (
@@ -227,6 +243,7 @@ class AgileBoard extends Component {
           <ScrollView
             refreshControl={this._renderRefreshControl()}
             onScroll={this._onScroll}
+            scrollEnabled={!isDragging}
             scrollEventThrottle={30}
             contentContainerStyle={[
               {minWidth: zoomedOut? null: this._getScrollableWidth()}
