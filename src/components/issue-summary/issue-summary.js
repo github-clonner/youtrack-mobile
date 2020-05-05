@@ -17,7 +17,7 @@ type Props = {
 
 const TEXT_UPDATE_DEBOUNCE = 300;
 
-export default class AttachmentsRow extends Component<Props, void> {
+export default class IssueSummary extends Component<Props, void> {
   descriptionInput: MultilineInput;
 
   descriptionInputRef = (instance: ?MultilineInput) => {
@@ -35,7 +35,8 @@ export default class AttachmentsRow extends Component<Props, void> {
   ), TEXT_UPDATE_DEBOUNCE);
 
   render() {
-    const {editable, showSeparator, summary, description, ...rest} = this.props;
+    // eslint-disable-next-line no-unused-vars
+    const {editable, showSeparator, summary, description, onDescriptionChange, onSummaryChange, ...rest} = this.props;
 
     return (
       <View {...rest}>
@@ -59,6 +60,7 @@ export default class AttachmentsRow extends Component<Props, void> {
         <MultilineInput
           ref={this.descriptionInputRef}
           maxInputHeight={0}
+          scrollEnabled={false}
           editable={editable}
           autoCapitalize="sentences"
           placeholderTextColor={COLOR_FONT_GRAY}

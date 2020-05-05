@@ -2,7 +2,8 @@
 import { View, Text, Image, TouchableOpacity } from 'react-native';
 import React from 'react';
 import ApiHelper from '../api/api__helper';
-import {addGray, arrowRightGray, arrowDownGray} from '../icon/icon';
+import {arrowRightGray, arrowDownGray} from '../icon/icon';
+import AgileRowColumn from './agile-row__column';
 import styles from './agile-row.styles';
 import type {AgileBoardRow, BoardCell} from '../../flow/Agile';
 import type {IssueOnList} from '../../flow/Issue';
@@ -21,29 +22,25 @@ type Props = {
 };
 
 function renderIssueSquare(issue: IssueOnList) {
-    const priorityField = getPriotityField(issue);
+  const priorityField = getPriotityField(issue);
 
-    const color = priorityField ? priorityField.value.color : null;
-    return <View
-      key={issue.id}
-      style={[styles.issueSquare, color && {backgroundColor: color.background}]}
-    />;
+  const color = priorityField?.value?.color;
+  return <View
+    key={issue.id}
+    style={[styles.issueSquare, color && {backgroundColor: color.background}]}
+  />;
 }
 
-function renderCell(cell: BoardCell, collapsed: boolean, onTapCreateIssue, lastColumn, renderIssueCard: RenderIssueCard) {
+function renderCollapsedColumn(cell: BoardCell, lastColumn: boolean) {
   return (
     <View key={cell.id} style={[
-        styles.column,
-        collapsed && styles.columnCollapsed,
-        lastColumn && styles.columnWithoutBorder
-      ]}
-    >
-      {cell.issues.map(issue => {
-        return collapsed ? renderIssueSquare(issue) : renderIssueCard(issue);
-      })}
-      {!collapsed && <TouchableOpacity onPress={() => onTapCreateIssue(cell.column.id, cell.id)} style={styles.addCardButton}>
-        <Image style={styles.addCardIcon} source={addGray}/>
-      </TouchableOpacity>}
+      styles.column,
+      styles.columnCollapsed,
+      lastColumn && styles.columnWithoutBorder
+    ]}>
+      <View style={styles.columnCollapsed}>
+        {cell.issues.map(renderIssueSquare)}
+      </View>
     </View>
   );
 }
@@ -78,7 +75,18 @@ export default function BoardRow(props: Props) {
         {!row.collapsed && row.cells.map((cell, index) => {
           const isCellCollapsed = collapsedColumnIds.includes(cell.column.id);
           const lastColumn = index === row.cells.length - 1;
-          return renderCell(cell, isCellCollapsed, onTapCreateIssue, lastColumn, renderIssueCard);
+          if (isCellCollapsed) {
+            return renderCollapsedColumn(cell, lastColumn);
+          }
+          return (
+            <AgileRowColumn
+              key={cell.id}
+              cell={cell}
+              onTapCreateIssue={onTapCreateIssue}
+              lastColumn={lastColumn}
+              renderIssueCard={renderIssueCard}
+            />
+          );
         })}
       </View>
 

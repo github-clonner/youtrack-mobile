@@ -30,12 +30,14 @@ build/
 local.properties
 *.iml
 .vscode
+google-services.json
 
 # node.js
 #
 node_modules/
 npm-debug.log
 yarn-error.log
+.tmp/
 
 # BUCK
 buck-out/
@@ -52,3 +54,6 @@ buck-out/
 */fastlane/report.xml
 */fastlane/Preview.html
 */fastlane/screenshots
+
+# Bundle artifact
+*.jsbundle

@@ -1,14 +1,24 @@
 // Top-level build file where you can add configuration options common to all sub-projects/modules.
 
 buildscript {
+    ext {
+      buildToolsVersion = "28.0.3"
+      minSdkVersion = 16
+      compileSdkVersion = 28
+      targetSdkVersion = 28
+      supportLibVersion = "28.0.0"
+
+      //Fix for `Manifest merger failed` related to AndroidX
+      firebaseVersion = "17.6.0"
+      googlePlayServicesVersion = "16.+"
+    }
     repositories {
         jcenter()
+        google()
     }
     dependencies {
-        // Have changed to old version because of build on docker issue
-        // See http://stackoverflow.com/questions/40108471/java-lang-nullpointerexception-no-error-message-apk-building
-        classpath 'com.android.tools.build:gradle:2.1.0'
-
+        classpath 'com.android.tools.build:gradle:3.4.0'
+        classpath 'com.google.gms:google-services:4.3.3'
         // NOTE: Do not place your application dependencies here; they belong
         // in the individual module build.gradle files
     }
@@ -17,10 +27,27 @@ buildscript {
 allprojects {
     repositories {
         mavenLocal()
+        google()
         jcenter()
+        maven { url "https://jitpack.io" }
         maven {
             // All of React Native (JS, Obj-C sources, Android binaries) is installed from npm
             url "$rootDir/../node_modules/react-native/android"
+        }
+    }
+}
+
+subprojects { subproject ->
+    afterEvaluate {
+        if ((subproject.plugins.hasPlugin('android') || subproject.plugins.hasPlugin('android-library'))) {
+            android {
+                variantFilter { variant ->
+                    def names = variant.flavors*.name
+                    if (names.contains("reactNative59")) {
+                        setIgnore(true)
+                    }
+                }
+            }
         }
     }
 }

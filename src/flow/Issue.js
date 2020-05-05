@@ -1,43 +1,45 @@
+import type {IssueProject, CustomFieldShort, CustomField, Tag, Attachment, IssueComment, IssueLink} from './CustomFields';
+import type {User} from './User';
 
-declare type IssueOnList = {
+export type IssueOnList = {
   id: string,
+  idReadable: string,
   summary: string,
   resolved: boolean,
   project: IssueProject,
-  numberInProject: number,
-  reporter: IssueUser,
+  reporter: User,
   created: number,
   updated: number,
   fields: Array<CustomFieldShort>,
   fieldHash: any
 }
 
-declare type IssueFull = {
+export type IssueFull = {
   id: string,
+  idReadable: string,
   summary: string,
   description: string,
   resolved: boolean,
   created: number,
   updated: number,
   votes: number,
-  numberInProject: number,
   wikifiedDescription: string,
   watchers: {hasStar: boolean},
   voters: {hasVote: boolean},
   project: IssueProject,
-  reporter: IssueUser,
-  updater: IssueUser,
+  reporter: User,
+  updater: User,
   fields: Array<CustomField>,
   tags: Array<Tag>,
   attachments: Array<Attachment>,
-  comments: Array<IssueComment>,
+  comments?: Array<IssueComment>,
   links: Array<IssueLink>,
   fieldHash: any
 };
 
-declare type AnyIssue = IssueOnList | IssueFull;
+export type AnyIssue = IssueOnList | IssueFull;
 
-declare type ServersideSuggestion = {
+export type ServersideSuggestion = {
   o: string,
   d: string,
   hd: string,
@@ -50,7 +52,7 @@ declare type ServersideSuggestion = {
   ce: number
 };
 
-declare type TransformedSuggestion = {
+export type TransformedSuggestion = {
   prefix: string,
   option: string,
   suffix: string,
@@ -62,13 +64,13 @@ declare type TransformedSuggestion = {
   completionEnd: number
 }
 
-declare type SuggestedCommand = {
+export type SuggestedCommand = {
   description: ?string,
   error: boolean,
   delete: boolean
 }
 
-declare type CommandSuggestion = {
+export type CommandSuggestion = {
   id: string,
   caret: number,
   comment: string,
@@ -82,14 +84,14 @@ declare type CommandSuggestion = {
   suffix: string
 }
 
-declare type CommandSuggestionResponse = {
+export type CommandSuggestionResponse = {
   query: string,
   caret: number,
   commands: Array<SuggestedCommand>,
   suggestions: Array<CommandSuggestion>
 };
 
-declare type SavedQuery = {
+export type SavedQuery = {
   id: string,
   name: string,
   query: string,

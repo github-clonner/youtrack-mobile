@@ -1,6 +1,6 @@
-const SERVER_URL = 'ytm-test.myjetbrains.com';
-const DEFAULT_LOGIN = 'TestYTM';
-const DEFAULT_PASS = 'TestYTM';
+const SERVER_URL = 'http://127.0.0.1:8088';
+const DEFAULT_LOGIN = 'root';
+const DEFAULT_PASS = 'root';
 
 const LOGIN_INPUT = 'login-input';
 const PASS_INPUT = 'password-input';
@@ -14,10 +14,10 @@ module.exports = {
 
   logIn: async (login = DEFAULT_LOGIN, pass = DEFAULT_PASS) => {
     await element(by.id(LOGIN_INPUT)).tap();
-    await element(by.id(LOGIN_INPUT)).typeText(login);
+    await element(by.id(LOGIN_INPUT)).replaceText(login);
 
     await element(by.id(PASS_INPUT)).tap();
-    await element(by.id(PASS_INPUT)).typeText(pass);
+    await element(by.id(PASS_INPUT)).replaceText(pass);
     await element(by.id('log-in')).tap();
   }
 };

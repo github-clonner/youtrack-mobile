@@ -1,25 +1,31 @@
 /* @flow */
-import {View, Text, TouchableOpacity, ActivityIndicator, ScrollView, Image} from 'react-native';
+import {View, Text, ActivityIndicator, ScrollView, Image} from 'react-native';
+import {TouchableOpacity} from 'react-native-gesture-handler';
 import React, {Component} from 'react';
 import throttle from 'lodash.throttle';
 import {COLOR_PLACEHOLDER} from '../../components/variables/variables';
 import MultilineInput from '../../components/multiline-input/multiline-input';
-import {closeOpaque} from '../../components/icon/icon';
-import type {IssueUser, IssueComment} from '../../flow/CustomFields';
+import {closeOpaque, visibility, visibilityActive} from '../../components/icon/icon';
+import Avatar from '../../components/avatar/avatar';
+import type {IssueComment} from '../../flow/CustomFields';
+import type {User} from '../../flow/User';
 
-import styles from './single-issue.styles';
+import styles from './single-issue__comments.styles';
 
 type Props = {
   initialText: string,
   onChangeText?: (text: string) => any,
-  onSubmitComment: (comment: string) => any,
+  onSubmitComment: (comment: IssueComment) => any,
 
   editingComment: IssueComment,
   onCancelEditing: Function,
 
   suggestionsAreLoading: boolean,
   onRequestCommentSuggestions: (query: string) => any,
-  suggestions: ?{users: Array<IssueUser>}
+  suggestions: ?{ users: Array<User> },
+
+  onEditCommentVisibility: (commentId: string) => any,
+  isSecured: boolean
 };
 
 type State = {
@@ -30,8 +36,14 @@ type State = {
   commentCaret: number
 };
 
+const UPDATE_TEXT_TIMEOUT = 300;
+
 export default class SingleIssueCommentInput extends Component<Props, State> {
   isUnmounted: boolean;
+  SUGGESTION_AVATAR_SIZE = 32;
+  debouncedOnChange = throttle((text: string) => (
+    this.props.onChangeText && this.props.onChangeText(text)
+  ), UPDATE_TEXT_TIMEOUT);
 
   constructor() {
     super();
@@ -47,7 +59,7 @@ export default class SingleIssueCommentInput extends Component<Props, State> {
     };
   }
 
-  componentWillReceiveProps(nextProps: Props) {
+  UNSAFE_componentWillReceiveProps(nextProps: Props) {
     if (nextProps.initialText !== this.props.initialText) {
       this.setState({commentText: nextProps.initialText});
     }
@@ -61,20 +73,23 @@ export default class SingleIssueCommentInput extends Component<Props, State> {
     this.isUnmounted = true;
   }
 
-  debouncedOnChange = throttle((text: string) => (
-    this.props.onChangeText && this.props.onChangeText(text)
-  ), 300);
-
   addComment() {
+    let clearTimer;
     this.setState({isSaving: true});
-    this.props.onSubmitComment(this.state.commentText)
+    this.props.onSubmitComment({
+      ...this.props.editingComment, ...{
+        usesMarkdown: true,
+        text: this.state.commentText
+      }
+    })
       .then(() => {
+        clearTimeout(clearTimer);
         if (this.isUnmounted) {
           return;
         }
-        this.setState({isSaving: false, commentText: ''});
+        clearTimer = setTimeout(() => !this.isUnmounted && this.setState({commentText: ''}), UPDATE_TEXT_TIMEOUT);
       })
-      .catch(() => this.setState({isSaving: false}));
+      .finally(() => !this.isUnmounted && this.setState({isSaving: false}));
   }
 
   suggestionsNeededDetector(text: string, caret: number) {
@@ -98,7 +113,7 @@ export default class SingleIssueCommentInput extends Component<Props, State> {
     }
   }
 
-  applySuggestion(user: IssueUser) {
+  applySuggestion(user: User) {
     function replaceRange(source, start, end, substitute) {
       return source.substring(0, start) + substitute + source.substring(end);
     }
@@ -108,7 +123,10 @@ export default class SingleIssueCommentInput extends Component<Props, State> {
 
     if (currentWord) {
       const startIndex = this.state.commentText.slice(0, this.state.commentCaret).lastIndexOf(currentWord);
-      const newText = replaceRange(this.state.commentText, startIndex, startIndex + currentWord.length, `@${user.login}`);
+      const newText = replaceRange(this.state.commentText,
+        startIndex,
+        startIndex + currentWord.length,
+        `@${user.login}`);
       this.setState({
         commentText: newText,
         showSuggestions: false
@@ -123,53 +141,62 @@ export default class SingleIssueCommentInput extends Component<Props, State> {
     }
 
     return (
-      <ScrollView style={styles.commentSuggestionsContainer} keyboardShouldPersistTaps="handled">
+      <ScrollView style={styles.suggestionsContainer} keyboardShouldPersistTaps="handled">
 
         {suggestionsAreLoading &&
-          <View style={styles.suggestionsLoadingMessage}>
-            <Text style={styles.suggestionsLoadingMessageText}>Loading suggestions...</Text>
-          </View>}
+        <View style={styles.suggestionsLoadingMessage}>
+          <Text style={styles.suggestionsLoadingMessageText}>Loading suggestions...</Text>
+        </View>}
 
         {suggestions
-        ? suggestions.users.map(user => {
-          return (
-            <TouchableOpacity key={user.id}
-                              style={styles.commentSuggestionButton}
-                              onPress={() => this.applySuggestion(user)}>
-              <Image source={{uri: user.avatarUrl}} style={styles.commentSuggestionAvatar}/>
-              <Text style={styles.commentSuggestionName}>{user.fullName}</Text>
-              <Text style={styles.commentSuggestionLogin}>  @{user.login}</Text>
-            </TouchableOpacity>
-          );
-        })
-        : null}
+          ? suggestions.users.map(user => {
+            return (
+              <TouchableOpacity
+                key={user.id}
+                style={styles.suggestionButton}
+                onPress={() => this.applySuggestion(user)}
+              >
+                <Avatar
+                  userName={user.fullName}
+                  size={this.SUGGESTION_AVATAR_SIZE}
+                  source={{uri: user.avatarUrl}}
+                  style={{
+                    width: this.SUGGESTION_AVATAR_SIZE,
+                    height: this.SUGGESTION_AVATAR_SIZE
+                  }}/>
+                <Text style={styles.suggestionName}>{user.fullName}</Text>
+                <Text style={styles.suggestionLogin}> (@{user.login})</Text>
+              </TouchableOpacity>
+            );
+          })
+          : null}
       </ScrollView>
     );
   }
 
   render() {
-    const {editingComment, onCancelEditing} = this.props;
+    const {editingComment, onCancelEditing, onEditCommentVisibility, isSecured} = this.props;
     return (
-      <View>
+      <View style={styles.commentContainer}>
         {this.renderSuggestions()}
 
-        {editingComment &&
-          <View style={styles.editingCommentWrapper}>
-            <View>
-              <Text style={styles.editingCommentTitle}>Edit comment</Text>
-              <Text style={styles.editingCommentText} numberOfLines={1}>{editingComment.text}</Text>
-            </View>
-            <TouchableOpacity onPress={onCancelEditing}>
-              <Image
-                style={styles.editingCommentCloseIcon}
-                source={closeOpaque}
-              />
-            </TouchableOpacity>
-          </View>}
+        {editingComment && editingComment.id &&
+        <View style={styles.commentEditContainer}>
+          <View>
+            <Text style={styles.commentEditTitle}>Edit comment</Text>
+            <Text style={styles.commentEditText} numberOfLines={1}>{editingComment.text}</Text>
+          </View>
+          <TouchableOpacity onPress={onCancelEditing}>
+            <Image
+              style={styles.commentEditCloseIcon}
+              source={closeOpaque}
+            />
+          </TouchableOpacity>
+        </View>}
 
-        <View style={styles.commentInputWrapper}>
+        <View style={styles.commentInputContainer}>
           <MultilineInput
-            placeholder="Type your comment here"
+            placeholder="Write comment, @mention people"
             value={this.state.commentText}
             editable={!this.state.isSaving}
             underlineColorAndroid="transparent"
@@ -177,7 +204,7 @@ export default class SingleIssueCommentInput extends Component<Props, State> {
             placeholderTextColor={COLOR_PLACEHOLDER}
             autoCapitalize="sentences"
             {...this.props}
-            onSelectionChange = {(event) => {
+            onSelectionChange={(event) => {
               const caret = event.nativeEvent.selection.start;
               this.setState({commentCaret: caret});
             }}
@@ -189,13 +216,25 @@ export default class SingleIssueCommentInput extends Component<Props, State> {
             style={styles.commentInput}
           />
 
-          <TouchableOpacity style={styles.commentSendButton}
-                            disabled={!this.state.commentText}
-                            onPress={() => this.addComment()}>
+          <TouchableOpacity
+            style={styles.visibilityChangeButton}
+            disabled={this.state.isSaving}
+            onPress={() => onEditCommentVisibility(editingComment)}
+          >
+            <Image
+              source={isSecured ? visibilityActive : visibility}
+              style={styles.visibilityChangeIcon}/>
+          </TouchableOpacity>
 
-            {!this.state.isSaving ?
-              <Text style={[styles.sendComment, this.state.commentText ? null : styles.sendCommentDisabled]}>Send</Text> :
-              <ActivityIndicator/>
+          <TouchableOpacity
+            style={styles.commentSendButton}
+            disabled={!this.state.commentText || this.state.isSaving}
+            onPress={() => this.addComment()}>
+            {!this.state.isSaving
+              ? (<Text style={
+                [styles.commentSendButtonText, this.state.commentText ? null : styles.commentSendButtonTextDisabled]}
+              > Send </Text>)
+              : <ActivityIndicator/>
             }
           </TouchableOpacity>
         </View>

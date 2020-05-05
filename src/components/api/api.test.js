@@ -37,7 +37,7 @@ describe('API', () => {
   });
 
   it('should make request', async () => {
-    fetchMock.get(serverUrl, {foo: 'bar'});
+    fetchMock.get(`${serverUrl}?$top=-1`, {foo: 'bar'});
     const res = await createInstance().makeAuthorizedRequest(serverUrl);
     res.foo.should.equal('bar');
   });
@@ -46,7 +46,7 @@ describe('API', () => {
     const callSpy = sinon.spy();
 
     let isFirst = true;
-    fetchMock.mock(serverUrl, (...args) => {
+    fetchMock.mock(`${serverUrl}?$top=-1`, (...args) => {
       callSpy(...args);
 
       if (isFirst) {
@@ -65,7 +65,7 @@ describe('API', () => {
 
   it('should load issue', async () => {
     fetchMock.mock(`^${serverUrl}/api/issues/test-id`, {id: 'issue-id', comments: [{author: {avatarUrl: 'http://foo.bar'}}]});
-    const res = await createInstance().getIssue('test-id');
+    const res = await createInstance().issue.getIssue('test-id');
 
     res.id.should.equal('issue-id');
   });
@@ -77,26 +77,25 @@ describe('API', () => {
         url: '/persistent/123'
       }
     ]});
-    const res = await createInstance().getIssue('test-id');
+    const res = await createInstance().issue.getIssue('test-id');
 
     res.attachments[0].url.should.equal(`${serverUrl}/persistent/123`);
   });
 
-  it('should handle relative avatar url in comments on loading issue', async () => {
+  it('should handle relative avatar url in comments on loading comments', async () => {
     const relativeUrl = '/hub/users/123';
-    fetchMock.mock(`^${serverUrl}/api/issues/test-id`, {
-      comments: [
-        {
-          id: 'foo', author: {
-            avatarUrl: relativeUrl
-          }
+    fetchMock.mock(`^${serverUrl}/api/issues/test-id/comments`, [
+      {
+        id: 'foo',
+        author: {
+          avatarUrl: relativeUrl
         }
-      ]
-    });
+      }
+    ]);
 
-    const res = await createInstance().getIssue('test-id');
+    const comments = await createInstance().issue.getIssueComments('test-id');
 
-    res.comments[0].author.avatarUrl.should.equal(`${serverUrl}${relativeUrl}`);
+    comments[0].author.avatarUrl.should.equal(`${serverUrl}${relativeUrl}`);
   });
 
   it('should handle relative avatar url in custom field possible values', async () => {
@@ -117,19 +116,19 @@ describe('API', () => {
         avatarUrl: 'http://foo.bar'
       }
     });
-    const res = await createInstance().submitComment('test-issue-id', 'test comment text');
+    const res = await createInstance().issue.submitComment('test-issue-id', {text: 'test comment text'});
 
     res.id.should.equal('test-comment');
   });
 
-  it('should update existing comment if ID providded', async () => {
+  it('should update existing comment if ID is provided', async () => {
     fetchMock.post(`^${serverUrl}/api/issues/test-issue-id/comments/123`, {
       id: 'test-comment',
       author: {
         avatarUrl: 'http://foo.bar'
       }
     });
-    const res = await createInstance().submitComment('test-issue-id', 'test comment text', '123');
+    const res = await createInstance().issue.submitComment('test-issue-id', {text: 'test comment text', id: '123'});
 
     res.id.should.equal('test-comment');
   });
@@ -143,7 +142,7 @@ describe('API', () => {
         avatarUrl: relativeUrl
       }
     });
-    const res = await createInstance().submitComment('test-issue-id', 'test comment text');
+    const res = await createInstance().issue.submitComment('test-issue-id', {text: 'test comment text'});
 
     res.author.avatarUrl.should.equal(`${serverUrl}${relativeUrl}`);
   });

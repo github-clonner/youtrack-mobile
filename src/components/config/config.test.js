@@ -1,6 +1,8 @@
-import {loadConfig, getStoredConfig, formatYouTrackURL} from './config';
+import {loadConfig, formatYouTrackURL} from './config';
+import {YT_SUPPORTED_VERSION} from '../error-message/error-text-messages';
+import {__setStorageState} from '../storage/storage';
 import sinon from 'sinon';
-import {AsyncStorage} from 'react-native';
+import AsyncStorage from '@react-native-community/async-storage';
 
 describe('Config', () => {
   describe('Loading', () => {
@@ -9,6 +11,8 @@ describe('Config', () => {
     let responseJson;
 
     beforeEach(() => {
+      __setStorageState({config: null});
+
       responseJson = {
         ring: {
           url: 'http://hub.com',
@@ -29,7 +33,11 @@ describe('Config', () => {
       fetch = global.fetch = sinon.stub();
 
       fetch.returns(Promise.resolve(response));
+
+      sinon.stub(AsyncStorage, 'multiSet');
     });
+
+    afterEach(() => AsyncStorage.multiSet.restore());
 
     it('should load config from server', async() => {
       const res = await loadConfig('http://fake.backend');
@@ -66,7 +74,8 @@ describe('Config', () => {
       fetch.should.have.been.calledWith('http://fake.backend/api/config?fields=ring(url,serviceId),mobile(serviceSecret,serviceId),version,statisticsEnabled', {
         method: 'GET',
         headers: {
-          'Accept': 'application/json, text/plain, */*'
+          'Accept': 'application/json, text/plain, */*',
+          'User-Agent': 'YouTrackMobile/0.1 (undefined undefined undefined)'
         }
       });
     });
@@ -76,11 +85,11 @@ describe('Config', () => {
       fetch.should.have.been.calledWith('http://fake.backend/rest/workflow/version', sinon.match.object);
     });
 
-    it('should throw IncompatibleYouTrackError if old youtrack entered', (done) => {
+    it('should throw IncompatibleYouTrackError if old YouTrack entered', (done) => {
       responseJson.version = '6.5';
       loadConfig('http://fake.backend')
         .catch(err => {
-          err.message.should.contain('YouTrack Mobile requires YouTrack version 7.0 or later');
+          err.message.should.contain(YT_SUPPORTED_VERSION);
           done();
         });
     });
@@ -102,29 +111,6 @@ describe('Config', () => {
           err.message.should.contain('The mobile application feature is not enabled');
           done();
         });
-    });
-  });
-
-  describe('Loading stored config', () => {
-    const configMock = {foo: 'bar'};
-
-    beforeEach(() => {
-      sinon.stub(AsyncStorage, 'getItem').returns(JSON.stringify(configMock));
-    });
-
-    afterEach(() => {
-      AsyncStorage.getItem.restore();
-    });
-
-    it('should load config from local storage', async() => {
-      const config = await getStoredConfig();
-      config.should.deep.equal(configMock);
-    });
-
-    it('should return nothing if no stored config found', async() => {
-      AsyncStorage.getItem.returns(null);
-      const config = await getStoredConfig();
-      expect(config).toBeNull();
     });
   });
 

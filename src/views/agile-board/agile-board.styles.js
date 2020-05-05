@@ -4,42 +4,61 @@ import {
   COLOR_PINK,
   COLOR_FONT,
   COLOR_FONT_ON_BLACK,
-  COLOR_TRANSPARENT_BLACK
+  COLOR_TRANSPARENT_BLACK,
+  COLOR_BLACK,
+  COLOR_FONT_GRAY,
+  COLOR_GRAY
 } from '../../components/variables/variables';
 
 export default StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFF'
+    backgroundColor: COLOR_FONT_ON_BLACK
   },
   headerContent: {
-    paddingTop: 3,
-    flexDirection: 'row'
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
   },
   headerBoardButton: {
-    flexShrink: 1
+    flexDirection: 'row',
+    flexShrink: 1,
+    justifyContent: 'center'
   },
   headerBoardNotCollapsibleButton: {
-    flexShrink: 0
+    marginLeft: UNIT * 2.5
   },
-  headerBoardText: {
-    color: COLOR_FONT_ON_BLACK,
-    fontSize: 14
+  title: {
+    fontSize: 17,
+    color: COLOR_BLACK
   },
-  headerSprintText: {
-    fontSize: 14,
-    color: COLOR_FONT_ON_BLACK,
-    fontWeight: 'bold'
+  headerText: {
+    fontSize: 17,
+    color: COLOR_FONT_ON_BLACK
   },
-  headerSeparatorIcon: {
-    alignSelf: 'center',
-    height: UNIT * 1.5,
+  headerTextDisabled: {
+    color: COLOR_FONT_GRAY
+  },
+  headerIconDisabled: {
+    tintColor: COLOR_FONT_GRAY
+  },
+  headerSelectIcon: {
+    width: 9,
     marginLeft: UNIT / 2,
-    marginRight: UNIT / 2,
-    resizeMode: 'contain'
+    paddingRight: UNIT / 2,
+    alignSelf: 'center',
+    resizeMode: 'contain',
+    tintColor: COLOR_FONT_ON_BLACK
   },
   boardHeaderContainer: {
-    overflow: 'hidden'
+    overflow: 'hidden',
+    backgroundColor: COLOR_BLACK
+  },
+  loadingIndicator: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center'
   },
   loadingMoreIndicator: {
     padding: UNIT * 2
@@ -76,7 +95,9 @@ export default StyleSheet.create({
   },
   agileBoardMessage: {
     flex: 1,
-    alignItems: 'center'
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: UNIT * 4
   },
   agileBoardSmile: {
     paddingTop: UNIT * 6,
@@ -99,5 +120,30 @@ export default StyleSheet.create({
     left: 0,
     bottom: 0,
     backgroundColor: COLOR_TRANSPARENT_BLACK
-  }
+  },
+  popupModal: {
+    justifyContent: 'flex-end'
+  },
+  popupPanel: {
+    padding: UNIT * 2,
+    paddingBottom: UNIT * 4,
+    backgroundColor: COLOR_FONT_ON_BLACK,
+    borderTopWidth: 1,
+    borderColor: COLOR_GRAY
+  },
+  popupText: {
+    fontSize: 18,
+  },
+  popupButton: {
+    marginTop: UNIT * 4,
+    padding: UNIT,
+    backgroundColor: COLOR_PINK,
+    paddingLeft: UNIT * 2
+  },
+  popupButtonText: {
+    height: 24,
+    fontSize: 20,
+    color: COLOR_FONT_ON_BLACK,
+    textAlign: 'center'
+  },
 });

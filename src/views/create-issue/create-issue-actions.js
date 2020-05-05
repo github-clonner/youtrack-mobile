@@ -1,18 +1,16 @@
 /* @flow */
-import {AsyncStorage} from 'react-native';
 import type Api from '../../components/api/api';
 import ApiHelper from '../../components/api/api__helper';
 import type {IssueFull} from '../../flow/Issue';
-import type {CustomField, FieldValue} from '../../flow/CustomFields';
+import type {CustomField, FieldValue, Attachment} from '../../flow/CustomFields';
 import usage from '../../components/usage/usage';
 import * as types from './create-issue-action-types';
 import Router from '../../components/router/router';
 import log from '../../components/log/log';
 import attachFile from '../../components/attach-file/attach-file';
-import {notifyError, resolveError} from '../../components/notification/notification';
+import {getStorageState, flushStoragePart} from '../../components/storage/storage';
+import {notify, notifyError, resolveError} from '../../components/notification/notification';
 
-const PROJECT_ID_STORAGE_KEY = 'YT_DEFAULT_CREATE_PROJECT_ID_STORAGE';
-const DRAFT_ID_STORAGE_KEY = 'DRAFT_ID_STORAGE_KEY';
 export const CATEGORY_NAME = 'Create issue view';
 
 type ApiGetter = () => Api;
@@ -81,16 +79,16 @@ export function stopImageAttaching() {
   return {type: types.STOP_IMAGE_ATTACHING};
 }
 
-function clearIssueDraftStorage() {
-  AsyncStorage.removeItem(DRAFT_ID_STORAGE_KEY);
+async function clearIssueDraftStorage() {
+  return await flushStoragePart({draftId: null});
 }
 
-function storeProjectId(projectId: string) {
-  AsyncStorage.setItem(PROJECT_ID_STORAGE_KEY, projectId);
+export async function storeProjectId(projectId: string) {
+  return await flushStoragePart({projectId});
 }
 
-async function storeIssueDraftId(issueId: string) {
-  return await AsyncStorage.setItem(DRAFT_ID_STORAGE_KEY, issueId);
+async function storeIssueDraftId(draftId: string) {
+  return await flushStoragePart({draftId});
 }
 
 export function storeDraftAndGoBack() {
@@ -104,7 +102,7 @@ export function storeDraftAndGoBack() {
 
 export function loadStoredProject() {
   return async (dispatch: (any) => any) => {
-    const projectId = await AsyncStorage.getItem(PROJECT_ID_STORAGE_KEY);
+    const projectId = getStorageState().projectId;
     if (projectId) {
       log.info(`Stored project loaded, id=${projectId}`);
       dispatch(setDraftProjectId(projectId));
@@ -117,7 +115,7 @@ export function loadIssueFromDraft(draftId: string) {
   return async (dispatch: (any) => any, getState: () => Object, getApi: ApiGetter) => {
     const api: Api = getApi();
     try {
-      const issue = await api.loadIssueDraft(draftId);
+      const issue = await api.issue.loadIssueDraft(draftId);
       log.info(`Issue draft loaded, "${issue.summary}"`);
       dispatch(setIssueDraft(issue));
     } catch (err) {
@@ -129,7 +127,22 @@ export function loadIssueFromDraft(draftId: string) {
   };
 }
 
-export function updateIssueDraft() {
+export function applyCommandForDraft(command: string) {
+  return async (dispatch: (any) => any, getState: () => Object, getApi: ApiGetter) => {
+    const draftId = getState().creation.issue.id;
+
+    try {
+      await getApi().applyCommand({issueIds: [draftId], command});
+
+      notify('Command successfully applied');
+      await dispatch(loadIssueFromDraft(draftId));
+    } catch (err) {
+      notifyError('Failed to apply command', err);
+    }
+  };
+}
+
+export function updateIssueDraft(ignoreFields: boolean = false) {
   return async (dispatch: (any) => any, getState: () => Object, getApi: ApiGetter) => {
     const api: Api = getApi();
     const {issue} = getState().creation;
@@ -146,17 +159,28 @@ export function updateIssueDraft() {
     };
 
     try {
-      const issue = await api.updateIssueDraft(issueToSend);
+      const issue = await api.issue.updateIssueDraft(issueToSend);
+
+      if (ignoreFields) {
+        delete issue.fields;
+      }
+
       log.info('Issue draft updated', issueToSend);
       dispatch(setIssueDraft(issue));
       if (!getState().creation.predefinedDraftId) {
         return await storeIssueDraftId(issue.id);
       }
     } catch (err) {
-      const error = await resolveError(err);
-      if (error && error.error_description && error.error_description.indexOf(`Can't find entity with id`) !== -1) {
+      const error = await resolveError(err) || new Error('Unknown error');
+      const {error_description} = error;
+      if (
+        (error_description && error_description.indexOf(`Can't find entity with id`) !== -1) ||
+        error && (error.error === 'bad_request' || error.error === 'Bad Request')
+      ) {
+        flushStoragePart({projectId: null});
         dispatch(clearDraftProject());
       }
+
       notifyError('Cannot update issue draft', error);
     }
   };
@@ -167,10 +191,10 @@ export function initializeWithDraftOrProject(preDefinedDraftId: ?string) {
     if (preDefinedDraftId) {
       dispatch(setPredefinedDraftId(preDefinedDraftId));
     }
-    const draftId = preDefinedDraftId || (await AsyncStorage.getItem(DRAFT_ID_STORAGE_KEY));
+    const draftId = preDefinedDraftId || getStorageState().draftId;
 
     if (draftId) {
-      log.info(`INitializing with draft ${draftId}`);
+      log.info(`Initializing with draft ${draftId}`);
       await dispatch(loadIssueFromDraft(draftId));
       return;
     }
@@ -186,7 +210,7 @@ export function createIssue() {
 
     try {
       await dispatch(updateIssueDraft());
-      const created = await api.createIssue(getState().creation.issue);
+      const created = await api.issue.createIssue(getState().creation.issue);
       log.info('Issue has been created');
       usage.trackEvent(CATEGORY_NAME, 'Issue created', 'Success');
 
@@ -194,7 +218,7 @@ export function createIssue() {
       dispatch(issueCreated(filledIssue, getState().creation.predefinedDraftId));
 
       Router.pop();
-      return await AsyncStorage.removeItem(DRAFT_ID_STORAGE_KEY);
+      return await clearIssueDraftStorage();
 
     } catch (err) {
       usage.trackEvent(CATEGORY_NAME, 'Issue created', 'Error');
@@ -207,14 +231,17 @@ export function createIssue() {
 
 export function attachImage(takeFromLibrary: boolean = true) {
   return async (dispatch: (any) => any, getState: () => Object, getApi: ApiGetter) => {
-  const api: Api = getApi();
-  const {issue} = getState().creation;
-  try {
-      const attachingImage = await attachFile(takeFromLibrary ? 'launchImageLibrary' : 'launchCamera');
+    const api: Api = getApi();
+    const {issue} = getState().creation;
+    try {
+      const attachingImage = await attachFile(takeFromLibrary ? 'openPicker' : 'openCamera');
+      if (!attachingImage) {
+        return;
+      }
       dispatch(startImageAttaching(attachingImage));
 
       try {
-        await api.attachFile(issue.id, attachingImage.url, attachingImage.name);
+        await api.issue.attachFile(issue.id, attachingImage.url, attachingImage.name);
         log.info('Image attached to draft');
         usage.trackEvent(CATEGORY_NAME, 'Attach image', 'Success');
       } catch (err) {
@@ -249,14 +276,31 @@ export function updateFieldValue(field: CustomField, value: FieldValue) {
     const {issue} = getState().creation;
 
     try {
-      await dispatch(updateIssueDraft()); // Update summary/description first
-      await api.updateIssueDraftFieldValue(issue.id, field.id, value);
+      await dispatch(updateIssueDraft(true)); // Update summary/description first
+      await api.issue.updateIssueDraftFieldValue(issue.id, field.id, value);
       log.info(`Issue field value updated`);
 
       dispatch(loadIssueFromDraft(issue.id));
     } catch (err) {
       const error = await resolveError(err);
       notifyError('Cannot update field', error);
+    }
+  };
+}
+
+export function removeAttachment(attachment: Attachment) {
+  return async (dispatch: (any) => any, getState: () => Object, getApi: ApiGetter) => {
+    usage.trackEvent(CATEGORY_NAME, 'Remove attachment');
+
+    const api = getApi();
+    const {issue} = getState().creation;
+
+    try {
+      await api.issue.removeAttachment(issue.id, attachment.id);
+      log.info(`Attachment ${attachment.id} removed from issue draft ${issue.id}`);
+      dispatch({type: types.REMOVE_ATTACHMENT, attachment});
+    } catch (err) {
+      notifyError('Cannot remove attachment', err);
     }
   };
 }

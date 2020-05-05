@@ -28,6 +28,10 @@ export default class BoardHeader extends PureComponent<Props, void> {
 
   render() {
     const {columns, onCollapseToggle, style} = this.props;
+    
+    if (!columns || !columns.length) { //YTM-835
+      return null;
+    }
 
     return (
       <View
@@ -35,7 +39,8 @@ export default class BoardHeader extends PureComponent<Props, void> {
         ref={component => this.node = component}
       >
         {columns.map((col, index) => {
-          const columnPresentation = col.agileColumn.fieldValues
+          const agileColumn = col.agileColumn || {};
+          const columnPresentation = (agileColumn.fieldValues || [])
             .map(val => val.presentation)
             .join(', ');
 

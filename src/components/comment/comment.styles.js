@@ -14,14 +14,12 @@ export default StyleSheet.create({
     color: COLOR_FONT,
     fontWeight: 'bold'
   },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20
-  },
   comment: {
     marginLeft: UNIT,
     flex: 1
+  },
+  commentWikiContainer: {
+    minHeight: UNIT * 3,
   },
   commentText: {
     marginTop: UNIT
@@ -34,7 +32,7 @@ export default StyleSheet.create({
   },
 
   swipeButton: {
-    paddingTop: UNIT * 1,
+    paddingTop: UNIT,
     flex: 1,
     alignItems: 'center'
   },
@@ -45,7 +43,7 @@ export default StyleSheet.create({
   },
   swipeButtonText: {
     color: '#FFF',
-    paddingTop: UNIT,
+    paddingTop: UNIT/2,
     fontSize: 10,
     fontFamily: 'System'
   }

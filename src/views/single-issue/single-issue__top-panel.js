@@ -1,92 +1,79 @@
 /* @flow */
 
+import {View, Text, TouchableOpacity} from 'react-native';
+import React, {PureComponent} from 'react';
+
+import {formatDate, shortRelativeDate, getEntityPresentation} from '../../components/issue-formatter/issue-formatter';
+import Icon from 'react-native-vector-icons/FontAwesome';
+import {COLOR_FONT_GRAY} from '../../components/variables/variables';
+
 import styles from './single-issue.styles';
 
-import {View, Text, TouchableOpacity} from 'react-native';
-import React, {Component} from 'react';
-import ColorField from '../../components/color-field/color-field';
-import {formatDate, shortRelativeDate} from '../../components/issue-formatter/issue-formatter';
-import type {IssueFull} from '../../flow/Issue';
+import type {User} from '../../flow/User';
 
-const TOUCH_PADDING = 10;
-
-const moreButtonHitSlop = {
-  top: TOUCH_PADDING, left: TOUCH_PADDING, bottom: TOUCH_PADDING, right: TOUCH_PADDING
-};
 
 type Props = {
-  issue: IssueFull,
-  onTagPress: (query: string) => any
+  reporter: User,
+  created: number,
+  updater: User,
+  updated: number
 }
 
 type State = {
   showAdditionalDate: boolean
 }
 
-export default class TopPanel extends Component<Props, State> {
+export default class TopPanel extends PureComponent<Props, State> {
   state: State = {
     showAdditionalDate: false
+  };
+
+  _getUserName(user: User) {
+    return user ? getEntityPresentation(user) : '';
   }
 
-  _getUserName(user) {
-    return `${user.fullName || user.login}`;
-  }
-
-  _renderTags(tags) {
-    if (!tags || !tags.length) {
-      return;
-    }
-
-    return <View style={styles.tagsContainer}>
-      {tags.map(tag => {
-        return (
-          <TouchableOpacity onPress={() => this.props.onTagPress(tag.query)} key={tag.id} style={styles.tagButton}>
-            <ColorField text={tag.name} color={tag.color} fullText={true} style={styles.tagColorField}/>
-          </TouchableOpacity>
-        );
-      })}
-    </View>;
-  }
-
-  _renderUpdatedCreated(issue) {
-    return (
-      <View style={styles.issueTopMessage}>
-
-        <View>
-          <View style={{flexDirection: 'row'}}>
-            <View style={{flex: 1}}>
-              <Text style={styles.issueTopText} selectable={true} numberOfLines={1}>
-                Created by {this._getUserName(issue.reporter)} {shortRelativeDate(issue.created)}
-              </Text>
-            </View>
-            {!this.state.showAdditionalDate &&
-            <TouchableOpacity onPress={() => this.setState({showAdditionalDate: true})} hitSlop={moreButtonHitSlop}>
-              <Text style={styles.showMoreDateButton}>more</Text>
-            </TouchableOpacity>}
-          </View>
-
-          {this.state.showAdditionalDate && <Text style={styles.issueTopText}>{formatDate(issue.created)}</Text>}
-        </View>
-
-        {issue.updater && this.state.showAdditionalDate ?
-          <View style={styles.updatedInformation}>
-            <Text style={styles.issueTopText} selectable={true} numberOfLines={2}>
-              Updated by {this._getUserName(issue.updater)} {shortRelativeDate(issue.updated)}
-            </Text>
-            {this.state.showAdditionalDate && <Text style={styles.issueTopText}>{formatDate(issue.updated)}</Text>}
-          </View>
-          : null}
-
-      </View>
-    );
+  _getDate(timestamp: number, isRelative?: boolean) {
+    const formatter = isRelative ? shortRelativeDate : formatDate;
+    return timestamp ? formatter(timestamp) : '';
   }
 
   render() {
-    const {issue} = this.props;
+    const {reporter, created, updater, updated} = this.props;
+    const {showAdditionalDate} = this.state;
+
     return (
-      <View>
-        {this._renderTags(issue.tags)}
-        {this._renderUpdatedCreated(issue)}
+      <View style={styles.issueTopPanel}>
+
+        <TouchableOpacity onPress={
+          () => this.setState({showAdditionalDate: !showAdditionalDate})
+        }>
+          <Text>
+            <Text
+              style={styles.issueTopPanelText}
+              numberOfLines={1}
+              selectable={true}
+            >
+              Created by {this._getUserName(reporter)} {this._getDate(created, true)}
+            </Text>
+            <Text>{' '}</Text>
+            <Icon name={showAdditionalDate ? 'angle-up' : 'angle-down'} color={COLOR_FONT_GRAY}/>
+          </Text>
+
+          {showAdditionalDate && <Text style={styles.issueTopPanelText}>{this._getDate(created)}</Text>}
+
+          {showAdditionalDate &&
+          <View style={styles.topPanelUpdatedInformation}>
+            <Text
+              style={styles.issueTopPanelText}
+              numberOfLines={2}
+              selectable={true}
+            >
+              Updated by {this._getUserName(updater)} {this._getDate(updated, true)}
+            </Text>
+            <Text style={styles.issueTopPanelText}>{this._getDate(updated)}</Text>
+          </View>}
+        </TouchableOpacity>
+
       </View>
     );
   }

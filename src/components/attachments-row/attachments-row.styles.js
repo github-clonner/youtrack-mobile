@@ -5,7 +5,6 @@ const ATTACHING_IMAGE_ALPHA = '70';
 
 export default StyleSheet.create({
   attachesScroll: {
-    marginTop: UNIT * 2,
     paddingLeft: UNIT * 2,
     marginLeft: -UNIT * 2,
     marginRight: -UNIT * 2
@@ -16,14 +15,13 @@ export default StyleSheet.create({
     borderColor: 'rgba(0, 0, 0, 0.15)',
     borderRadius: 3,
     width: 120,
-    height: UNIT * 8
+    height: UNIT * 8,
+    overflow: 'hidden'
   },
   attachmentFile: {
     marginRight: UNIT * 2,
-    width: 120,
-    height: 60,
     justifyContent: 'center',
-    alignItems: 'center'
+    alignItems: 'center',
   },
   imageActivityIndicator: {
     backgroundColor: `#CCCCCC${ATTACHING_IMAGE_ALPHA}`,

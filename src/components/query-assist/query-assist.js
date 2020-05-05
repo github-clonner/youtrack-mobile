@@ -1,15 +1,15 @@
 /* @flow */
-import {View, Text, Image, TouchableOpacity, TextInput, Platform} from 'react-native';
+import {View, Text, Image, TouchableOpacity, TextInput} from 'react-native';
 import React, {Component} from 'react';
 import styles from './query-assist.styles';
 import QueryAssistSuggestionsList from './query-assist__suggestions-list';
 import type {TransformedSuggestion, SavedQuery} from '../../flow/Issue';
-import {COLOR_PINK, COLOR_PLACEHOLDER} from '../../components/variables/variables';
+import {COLOR_PLACEHOLDER, COLOR_PLACEHOLDER_ACTIVE} from '../../components/variables/variables';
 import {clearSearch} from '../../components/icon/icon';
-import Modal from 'react-native-root-modal';
-import KeyboardSpacer from 'react-native-keyboard-spacer';
+import ModalView from '../modal-view/modal-view';
 import throttle from 'lodash.throttle';
 import {View as AnimatedView} from 'react-native-animatable';
+import KeyboardSpacerIOS from '../platform/keyboard-spacer.ios';
 
 const SEARCH_THROTTLE = 30;
 const SHOW_LIST_ANIMATION_DURATION = 500;
@@ -80,7 +80,7 @@ export default class QueryAssist extends Component<Props, State> {
     this.props.onSetQuery(this.state.input || '');
   }
 
-  componentWillReceiveProps(newProps: Props) {
+  UNSAFE_componentWillReceiveProps(newProps: Props) {
     if (newProps.currentQuery !== this.props.currentQuery) {
       this.setState({input: newProps.currentQuery});
     }
@@ -99,7 +99,7 @@ export default class QueryAssist extends Component<Props, State> {
     this.setState({input: query, caret});
     this.props.onChange(query, caret);
 
-  }, SEARCH_THROTTLE)
+  }, SEARCH_THROTTLE);
 
   onApplySuggestion = (suggestion: TransformedSuggestion) => {
     const suggestionText = `${suggestion.prefix}${suggestion.option}${suggestion.suffix}`;
@@ -108,12 +108,12 @@ export default class QueryAssist extends Component<Props, State> {
     const newQuery = leftPartAndNewQuery + oldQuery.substring(suggestion.completionEnd);
     this.setState({input: newQuery});
     this.props.onChange(newQuery, leftPartAndNewQuery.length);
-  }
+  };
 
   onApplySavedQuery = (savedQuery: SavedQuery) => {
     this.blurInput();
     this.props.onSetQuery(savedQuery.query);
-  }
+  };
 
   _renderInput() {
     const {input, showQueryAssist} = this.state;
@@ -123,7 +123,7 @@ export default class QueryAssist extends Component<Props, State> {
       cancelButton = <TouchableOpacity
         style={styles.cancelSearch}
         testID="query-assist-cancel"
-        onPress={this.cancelSearch.bind(this)}
+        onPress={() => this.cancelSearch()}
       >
         <Text style={styles.cancelText}>
           Cancel
@@ -132,12 +132,15 @@ export default class QueryAssist extends Component<Props, State> {
     }
 
     return (
-      <View style={styles.inputWrapper} ref={node => this.queryAssistContainer = node}>
+      <View
+        style={[styles.inputWrapper, showQueryAssist ? styles.inputWrapperActive : null]}
+        ref={node => this.queryAssistContainer = node}
+      >
         <TextInput
           ref="searchInput"
           keyboardAppearance="dark"
-          style={[styles.searchInput, showQueryAssist ? styles.searchInputActive : null]}
-          placeholderTextColor={showQueryAssist ? COLOR_PLACEHOLDER : COLOR_PINK}
+          style={[styles.searchInput, input.length === 0 ? styles.searchInputEmpty : null, showQueryAssist ? styles.searchInputActive : null]}
+          placeholderTextColor={showQueryAssist ? COLOR_PLACEHOLDER_ACTIVE : COLOR_PLACEHOLDER}
           placeholder="Enter query"
           clearButtonMode="while-editing"
           returnKeyType="search"
@@ -151,13 +154,18 @@ export default class QueryAssist extends Component<Props, State> {
           onSubmitEditing={() => this.onSubmitEditing()}
           value={input}
           onChangeText={text => this.setState({input: text})}
-          onSelectionChange = {event => this.onSearch(input, event.nativeEvent.selection.start)}
+          onSelectionChange={event => this.onSearch(input, event.nativeEvent.selection.start)}
         />
         {(input && showQueryAssist)
-        ? <TouchableOpacity style={styles.clearIconWrapper} onPress={() => this.setState({input: ''})} testID="query-assist-clear">
-          <Image style={styles.clearIcon} source={clearSearch}/>
-        </TouchableOpacity>
-        : null}
+          ? (
+            <TouchableOpacity
+              style={styles.clearIconWrapper}
+              onPress={() => this.setState({input: ''})}
+              testID="query-assist-clear"
+            >
+              <Image style={styles.clearIcon} source={clearSearch}/>
+            </TouchableOpacity>
+          ) : null}
         {cancelButton}
       </View>
     );
@@ -184,21 +192,22 @@ export default class QueryAssist extends Component<Props, State> {
   render() {
     const {showQueryAssist} = this.state;
 
-    const ContainerComponent = showQueryAssist ? Modal : View;
+    const ContainerComponent = showQueryAssist ? ModalView : View;
     const containerProps = showQueryAssist ? {
       visible: true,
-      style: [styles.modal, showQueryAssist && styles.modalFullScreen]
+      style: styles.modal
     } : {
       style: styles.placeHolder
     };
 
     return (
+      // $FlowFixMe: flow fails with this props generation
       <ContainerComponent {...containerProps}>
-        {showQueryAssist && this._renderSuggestions()}
 
         {this._renderInput()}
+        {showQueryAssist && this._renderSuggestions()}
+        <KeyboardSpacerIOS/>
 
-        {Platform.OS === 'ios' && <KeyboardSpacer style={styles.keyboardSpacer}/>}
       </ContainerComponent>
     );
   }

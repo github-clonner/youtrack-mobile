@@ -7,7 +7,8 @@ import safariView from '../../components/safari-view/safari-view';
 
 type Props = {
   name: string,
-  url: string
+  url: string,
+  headers: ?Object
 }
 
 function renderLoading() {
@@ -15,20 +16,20 @@ function renderLoading() {
 }
 
 export function AttachmentPreview(props: Props) {
-  const {url, name} = props;
+  const {url, name, headers} = props;
 
   return (
     <View style={styles.container}>
       <Header leftButton={<Text>Close</Text>}
-              rightButton={<Text>Browser</Text>}
-              onRightButtonClick={() => {
-                safariView.show({url});
-              }}
+        rightButton={<Text>Browser</Text>}
+        onRightButtonClick={() => {
+          safariView.show({url});
+        }}
       >
         <Text style={styles.headerText} numberOfLines={1}>{name}</Text>
       </Header>
       <WebView
-        source={{uri: url}}
+        source={{uri: url, headers}}
         renderLoading={renderLoading}
         allowsInlineMediaPlayback={true}
         mediaPlaybackRequiresUserAction={true}

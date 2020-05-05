@@ -1,8 +1,18 @@
-import {StyleSheet} from 'react-native';
-import bottomPadding from '../bottom-padding/bottom-padding';
-import {UNIT, COLOR_PINK, COLOR_TRANSPARENT_BLACK, COLOR_FONT_ON_BLACK, COLOR_BLACK, COLOR_SELECTED_DARK} from '../../components/variables/variables';
+import {StyleSheet, Platform} from 'react-native';
+import {keyboardSpacerTop} from '../platform/keyboard-spacer.ios';
+import {
+  UNIT,
+  COLOR_PINK,
+  COLOR_TRANSPARENT_BLACK,
+  COLOR_FONT_ON_BLACK,
+  COLOR_BLACK,
+  COLOR_SELECTED_DARK,
+  COLOR_EXTRA_LIGHT_GRAY,
+  COLOR_MEDIUM_GRAY, COLOR_FONT
+} from '../../components/variables/variables';
 
-const QUERY_ASSIST_HEIGHT = 52 + bottomPadding;
+const QUERY_ASSIST_HEIGHT = 52;
+const inputBorderWidth = 1;
 
 export default StyleSheet.create({
   placeHolder: {
@@ -10,45 +20,60 @@ export default StyleSheet.create({
     backgroundColor: COLOR_BLACK
   },
   modal: {
-    justifyContent: 'flex-end',
-    left: 0,
-    right: 0,
-    bottom: 0
-  },
-  modalFullScreen: {
-    top: 0
+    flex: 1,
+    justifyContent: 'flex-start'
   },
   listContainer: {
     flex: 1,
     flexGrow: 1,
     flexShrink: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: COLOR_TRANSPARENT_BLACK
-  },
-  keyboardSpacer: {
-    backgroundColor: COLOR_BLACK
+    paddingBottom: keyboardSpacerTop,
+    justifyContent: 'flex-start',
+    backgroundColor: COLOR_TRANSPARENT_BLACK,
   },
   inputWrapper: {
-    backgroundColor: COLOR_BLACK,
+    backgroundColor: COLOR_EXTRA_LIGHT_GRAY,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingBottom: bottomPadding
+    borderBottomWidth: 1,
+    borderColor: COLOR_MEDIUM_GRAY,
+    paddingLeft: UNIT - inputBorderWidth * 2,
+    paddingRight: UNIT - inputBorderWidth * 2
+  },
+  inputWrapperActive: {
+    backgroundColor: COLOR_BLACK,
+    borderBottomWidth: 0
   },
   searchInput: {
     flex: 1,
     height: UNIT * 4.5,
     borderRadius: 6,
-    backgroundColor: COLOR_SELECTED_DARK,
+    backgroundColor: COLOR_FONT_ON_BLACK,
     margin: UNIT,
     paddingTop: 2,
     paddingBottom: 2,
     paddingLeft: UNIT,
-    color: COLOR_PINK,
-    fontSize: 15
+    color: COLOR_FONT,
+    fontSize: 15,
+    borderWidth: inputBorderWidth,
+    borderColor: COLOR_MEDIUM_GRAY,
+    textAlign: 'left'
+  },
+  searchInputEmpty: {
+    textAlign: 'center'
   },
   searchInputActive: {
-    color: COLOR_FONT_ON_BLACK
+    backgroundColor: COLOR_SELECTED_DARK,
+    color: COLOR_FONT_ON_BLACK,
+    borderWidth: 0,
+    textAlign: 'left',
+
+    ...Platform.select({
+      android: {
+        paddingRight: UNIT * 4
+      }
+    })
   },
   clearIconWrapper: {
     backgroundColor: 'transparent',

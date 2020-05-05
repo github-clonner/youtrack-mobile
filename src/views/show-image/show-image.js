@@ -1,13 +1,18 @@
 /* @flow */
-import {StyleSheet, View, Image, TouchableOpacity, ActivityIndicator} from 'react-native';
-import React from 'react';
-import {closeOpaque} from '../../components/icon/icon';
+import {View, Image, TouchableOpacity, ActivityIndicator, Alert} from 'react-native';
+import React, {PureComponent} from 'react';
+import {closeOpaque, trash} from '../../components/icon/icon';
 import Router from '../../components/router/router';
-import {UNIT} from '../../components/variables/variables';
-import {notifyError} from '../../components/notification/notification';
+import {notify} from '../../components/notification/notification';
 import once from 'lodash.once';
 import Gallery from 'react-native-image-gallery';
 import ImageProgress from 'react-native-image-progress';
+import {SvgFromUri} from 'react-native-svg';
+import {hasMimeType} from '../../components/mime-type/mime-type';
+
+import styles from './show-image.styles';
+
+import type {Attachment} from '../../flow/CustomFields';
 
 const TOUCH_PADDING = 12;
 
@@ -16,83 +21,110 @@ const hitSlop = {
 };
 
 type Props = {
-  allImagesUrls: Array<string>,
-  currentImage: string,
-  imageHeaders: ?Object
+  imageAttachments: Array<Attachment>,
+  current: Attachment,
+  imageHeaders: ?Object,
+  onRemoveImage?: (currentPage: number) => any
 }
 
-function renderImage(imageProps, imageDimensions) {
-  return (
-    <ImageProgress
-      renderIndicator={() => <ActivityIndicator style={styles.loader} size="large"/>}
-      onError={error => notifyError('Failed to load image', error)}
-      {...imageProps}
-    />
-  );
+type State = {
+  currentPage: number
 }
 
+export class ShowImage extends PureComponent<Props, State> {
+  componentDidMount() {
+    const currentPage = this.getCurrentPage(this.props.current);
+    this.setState({currentPage});
+  }
 
-export function ShowImage(props: Props) {
-  const currentIndex = props.allImagesUrls.indexOf(props.currentImage);
+  renderImage = (imageProps: Object) => {
+    const source = imageProps.source;
+    const attach = source && this.props.imageAttachments[this.getCurrentPage(source)];
 
-  const allImageSources = props.allImagesUrls.map(uri => ({
-    source: {
-      uri,
-      headers: props.imageHeaders
+    if (hasMimeType.svg(attach)) {
+      return <SvgFromUri
+        width="100%"
+        height="100%"
+        uri={attach.url}
+      />;
     }
-  }));
 
-  const closeView = once(function closeView() {
+    return (
+      <ImageProgress
+        renderIndicator={() => <ActivityIndicator style={styles.loader} size="large"/>}
+        onError={error => notify('Failed to load image')}
+        {...imageProps}
+      />
+    );
+  };
+
+  getCurrentPage(current: Attachment) {
+    return this.props.imageAttachments.findIndex(attach => attach.id === current.id);
+  }
+
+  closeView = once(function closeView() {
     return Router.pop();
   });
 
-  return (
-    <View style={styles.container}>
-      <Gallery
-        style={styles.gallery}
-        images={allImageSources}
-        initialPage={currentIndex}
-        imageComponent={renderImage}
-      />
-      <TouchableOpacity
-        style={styles.closeButton}
-        onPress={closeView}
-        hitSlop={hitSlop}
-      >
-        <Image style={styles.closeIcon} source={closeOpaque}></Image>
-      </TouchableOpacity>
-    </View>
-  );
-}
+  onPageSelected = (currentPage: number) => this.setState({currentPage});
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1
-  },
+  onRemove = async () => {
+    const {currentPage} = this.state;
+    Alert.alert(
+      'Confirmation',
+      'Delete attachment?',
+      [
+        {text: 'Cancel', style: 'cancel'},
+        {text: 'Delete', onPress: async () => {
+          if (!this.props.onRemoveImage) {
+            return;
+          }
+          await this.props.onRemoveImage(currentPage);
+          this.closeView();
+        }}
+      ],
+      {cancelable: true}
+    );
+  };
 
-  gallery: {
-    flex: 1,
-    backgroundColor: 'black'
-  },
+  render() {
+    const currentIndex = this.getCurrentPage(this.props.current);
+    const createSource = attach => ({
+      source: {
+        id: attach.id,
+        uri: attach.url,
+        headers: this.props.imageHeaders,
+        mimeType: attach.mimeType
+      }
+    });
 
-  loader: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0
-  },
+    return (
+      <View style={styles.container}>
+        <Gallery
+          style={styles.gallery}
+          images={this.props.imageAttachments.map(createSource)}
+          initialPage={currentIndex}
+          imageComponent={this.renderImage}
+          onPageSelected={this.onPageSelected}
+        />
+        <TouchableOpacity
+          style={styles.closeButton}
+          onPress={this.closeView}
+          hitSlop={hitSlop}
+        >
+          <Image style={styles.closeIcon} source={closeOpaque}/>
+        </TouchableOpacity>
 
-  closeButton: {
-    position: 'absolute',
-    bottom: UNIT * 3,
-    left: UNIT * 3
-  },
-
-  closeIcon: {
-    width: 30,
-    height: 30
+        {this.props.onRemoveImage && <TouchableOpacity
+          style={styles.removeButton}
+          onPress={this.onRemove}
+          hitSlop={hitSlop}
+        >
+          <Image style={styles.removeIcon} source={trash}/>
+        </TouchableOpacity>}
+      </View>
+    );
   }
-});
+}
 
 export default ShowImage;

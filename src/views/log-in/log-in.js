@@ -1,25 +1,47 @@
 /* @flow */
-import {Image, View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Linking, TouchableWithoutFeedback} from 'react-native';
+
+import {
+  Image,
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  ScrollView,
+  ActivityIndicator,
+  Linking,
+  TouchableWithoutFeedback
+} from 'react-native';
 import React, {Component} from 'react';
 import Auth from '../../components/auth/auth';
 import Router from '../../components/router/router';
 import {connect} from 'react-redux';
 import {formatYouTrackURL} from '../../components/config/config';
-import {logo, back} from '../../components/icon/icon';
+import {logo} from '../../components/icon/icon';
 import Keystore from '../../components/keystore/keystore';
 import authorizeInHub from '../../components/auth/auth__oauth';
 import KeyboardSpacer from 'react-native-keyboard-spacer';
 import usage from '../../components/usage/usage';
 import clicksToShowCounter from '../../components/debug-view/clicks-to-show-counter';
-import {openDebugView, checkAuthorization} from '../../actions/app-actions';
+import {openDebugView, applyAuthorization} from '../../actions/app-actions';
+import {LOG_IN_2FA_TIP} from '../../components/error-message/error-text-messages';
+
+import {resolveErrorMessage} from '../../components/notification/notification';
+import ErrorMessageInline from '../../components/error-message/error-message-inline';
+
+import type {AuthParams} from '../../components/auth/auth';
+
+import {COLOR_PINK} from '../../components/variables/variables';
+import BackIcon from '../../components/menu/back-icon';
+
 import styles from './log-in.styles';
+import {formStyles} from '../../components/common-styles/form';
 
 const noop = () => {};
 const CATEGORY_NAME = 'Login form';
 
 type Props = {
   auth: Auth,
-  onLogIn: () => any,
+  onLogIn: (authParams: AuthParams) => any,
   onShowDebugView: Function,
   onChangeServerUrl: (currentUrl: string) => any
 };
@@ -54,135 +76,140 @@ export class LogIn extends Component<Props, State> {
     this.refs.passInput.focus();
   }
 
-  logInViaCredentials() {
+  async logInViaCredentials() {
     const config = this.props.auth.config;
     this.setState({loggingIn: true});
 
-    this.props.auth.authorizeCredentials(this.state.username, this.state.password)
-      .then(() => {
-        return Keystore.setInternetCredentials(config.auth.serverUri, this.state.username, this.state.password)
-          .catch(noop);
-      })
-      .then(() => {
-        usage.trackEvent(CATEGORY_NAME, 'Login via credentials', 'Success');
-        return this.props.onLogIn();
-      })
-      .catch(err => {
-        usage.trackEvent(CATEGORY_NAME, 'Login via credentials', 'Error');
-        this.setState({errorMessage: err.error_description || err.message, loggingIn: false});
-      });
+    try {
+      const authParams = await this.props.auth.obtainTokenByCredentials(this.state.username, this.state.password);
+      Keystore.setInternetCredentials(config.auth.serverUri, this.state.username, this.state.password).catch(noop);
+      usage.trackEvent(CATEGORY_NAME, 'Login via credentials', 'Success');
+
+      return this.props.onLogIn(authParams);
+    } catch (err) {
+      usage.trackEvent(CATEGORY_NAME, 'Login via credentials', 'Error');
+      const errorMessage = err.error_description || err.message;
+      this.setState({errorMessage: errorMessage, loggingIn: false});
+    }
   }
 
   changeYouTrackUrl() {
     this.props.onChangeServerUrl(this.props.auth.config.backendUrl);
   }
 
-  logInViaHub() {
+  async logInViaHub() {
     const config = this.props.auth.config;
 
-    return authorizeInHub(config)
-      .then(code => {
-        this.setState({loggingIn: true});
-        return this.props.auth.authorizeOAuth(code);
-      })
-      .then(() => {
-        usage.trackEvent(CATEGORY_NAME, 'Login via browser', 'Success');
-        return this.props.onLogIn();
-      })
-      .catch(err => {
-        usage.trackEvent(CATEGORY_NAME, 'Login via browser', 'Error');
-        this.setState({loggingIn: false, errorMessage: err.error_description || err.message});
-      });
+    try {
+      const code = await authorizeInHub(config);
+      this.setState({loggingIn: true});
+
+      const authParams = await this.props.auth.obtainTokenByOAuthCode(code);
+      usage.trackEvent(CATEGORY_NAME, 'Login via browser', 'Success');
+
+      return this.props.onLogIn(authParams);
+    } catch (err) {
+      usage.trackEvent(CATEGORY_NAME, 'Login via browser', 'Error');
+      const errorMessage = await resolveErrorMessage(err);
+      this.setState({loggingIn: false, errorMessage: errorMessage});
+    }
   }
 
   render() {
     const {onShowDebugView} = this.props;
+
     return (
-      <ScrollView contentContainerStyle={styles.container}
-                  keyboardShouldPersistTaps="handled"
-                  keyboardDismissMode="on-drag">
-
-        <TouchableOpacity onPress={this.changeYouTrackUrl.bind(this)} style={styles.urlChangeButton} testID="back-to-url">
-          <View style={styles.urlChangeWrapper}>
-            <Image source={back} style={styles.urlChangeIcon}/>
-            <Text style={styles.urlChangeText}>URL</Text>
-          </View>
-        </TouchableOpacity>
-
-        <View style={styles.logoContainer}>
-          <TouchableWithoutFeedback onPress={() => clicksToShowCounter(onShowDebugView)}>
-            <Image style={styles.logoImage} source={logo}/>
-          </TouchableWithoutFeedback>
-        </View>
-
-        <TouchableOpacity onPress={this.changeYouTrackUrl.bind(this)} testID="youtrack-url">
-          <View>
-            <Text style={styles.welcome}>Login to YouTrack</Text>
-            <Text style={[styles.descriptionText, {marginTop: 8}]}>{formatYouTrackURL(this.props.auth.config.backendUrl)}</Text>
-          </View>
-        </TouchableOpacity>
-
-        <View style={styles.inputsContainer}>
-          <TextInput
-            autoCapitalize="none"
-            autoCorrect={false}
-            editable={!this.state.loggingIn}
-            testID="login-input"
-            style={styles.input}
-            placeholder="Username or email"
-            returnKeyType="next"
-            underlineColorAndroid="transparent"
-            onSubmitEditing={() => this.focusOnPassword()}
-            value={this.state.username}
-            onChangeText={(username) => this.setState({username})}/>
-          <TextInput
-            ref="passInput"
-            editable={!this.state.loggingIn}
-            testID="password-input"
-            style={styles.input}
-            placeholder="Password"
-            returnKeyType="done"
-            underlineColorAndroid="transparent"
-            value={this.state.password}
-            onSubmitEditing={() => this.logInViaCredentials()}
-            secureTextEntry={true}
-            onChangeText={(password) => this.setState({password})}/>
-
-          {this.state.errorMessage
-          ? <View><Text style={styles.error} selectable={true} testID="error-message">{this.state.errorMessage}</Text></View>
-          : null}
-        </View>
-
-        <View style={styles.actionsContainer}>
-          <TouchableOpacity style={[styles.signin, this.state.loggingIn ? styles.signinDisabled : {}]}
-                            disabled={this.state.loggingIn}
-                            testID="log-in"
-                            onPress={this.logInViaCredentials.bind(this)}>
-            <Text
-              style={styles.signinText}>Log in</Text>
-            {this.state.loggingIn && <ActivityIndicator style={styles.loggingInIndicator}/>}
+      <ScrollView
+        contentContainerStyle={styles.scrollContainer}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+      >
+        <View style={styles.container}>
+          <TouchableOpacity
+            onPress={() => this.changeYouTrackUrl()}
+            style={styles.backIconButton}
+            testID="back-to-url"
+          >
+            <BackIcon color={COLOR_PINK}/>
           </TouchableOpacity>
 
-          <View style={styles.description}>
-            <Text style={styles.descriptionText}>
+          <View style={styles.formContent}>
+            <TouchableWithoutFeedback onPress={() => clicksToShowCounter(onShowDebugView)}>
+              <Image style={styles.logoImage} source={logo}/>
+            </TouchableWithoutFeedback>
+
+            <TouchableOpacity onPress={() => this.changeYouTrackUrl()} testID="youtrack-url">
+              <Text style={styles.title}>Login to YouTrack</Text>
+              <Text
+                style={styles.hintText}>{formatYouTrackURL(this.props.auth.config.backendUrl)}</Text>
+            </TouchableOpacity>
+
+            <TextInput
+              autoCapitalize="none"
+              autoCorrect={false}
+              editable={!this.state.loggingIn}
+              testID="login-input"
+              style={styles.inputUser}
+              placeholder="Username or email"
+              returnKeyType="next"
+              underlineColorAndroid="transparent"
+              onSubmitEditing={() => this.focusOnPassword()}
+              value={this.state.username}
+              onChangeText={(username) => this.setState({username})}/>
+            <TextInput
+              ref="passInput"
+              editable={!this.state.loggingIn}
+              testID="password-input"
+              style={styles.inputPass}
+              placeholder="Password"
+              returnKeyType="done"
+              underlineColorAndroid="transparent"
+              value={this.state.password}
+              onSubmitEditing={() => {
+                this.logInViaCredentials();
+              }}
+              secureTextEntry={true}
+              onChangeText={(password) => this.setState({password})}/>
+
+            {Boolean(this.state.errorMessage) && (
+              <ErrorMessageInline
+                error={this.state.errorMessage}
+                tips={LOG_IN_2FA_TIP}
+              />
+            )}
+
+            <TouchableOpacity
+              style={[formStyles.button, this.state.loggingIn ? formStyles.buttonDisabled : null]}
+              disabled={this.state.loggingIn}
+              testID="log-in"
+              onPress={() => this.logInViaCredentials()}>
+              <Text
+                style={formStyles.buttonText}>Log in</Text>
+              {this.state.loggingIn && <ActivityIndicator style={styles.progressIndicator}/>}
+            </TouchableOpacity>
+
+            <Text style={styles.hintText}>
               {'You need a YouTrack account to use the app.\n By logging in, you agree to the '}
-              <Text style={styles.privacyPolicy} onPress={() => Linking.openURL('https://www.jetbrains.com/company/privacy.html')}>
+              <Text
+                style={formStyles.link}
+                onPress={() => Linking.openURL('https://www.jetbrains.com/company/privacy.html')}>
                 Privacy Policy
               </Text>.
             </Text>
+
           </View>
 
           <TouchableOpacity
-            style={styles.linkContainer}
+            style={styles.support}
             testID="log-in-via-browser"
-            onPress={this.logInViaHub.bind(this)}
+            onPress={() => this.logInViaHub()}
           >
-            <Text style={styles.linkLike}>
+            <Text style={styles.action}>
               Log in via Browser</Text>
           </TouchableOpacity>
-        </View>
 
-        <KeyboardSpacer/>
+          <KeyboardSpacer/>
+        </View>
       </ScrollView>
     );
   }
@@ -192,17 +219,29 @@ export class LogIn extends Component<Props, State> {
 const mapStateToProps = (state, ownProps) => {
   return {
     auth: state.app.auth,
-    issueQuery: state.issueList.query,
     ...ownProps
   };
 };
 
-const mapDispatchToProps = (dispatch) => {
+const mapDispatchToProps = (dispatch, ownProps) => {
   return {
-    onChangeServerUrl: youtrackUrl => Router.EnterServer({serverUrl: youtrackUrl}),
-    onLogIn: () => dispatch(checkAuthorization()),
+    onChangeServerUrl: youtrackUrl => {
+      if (ownProps.onChangeServerUrl) {
+        return ownProps.onChangeServerUrl(youtrackUrl);
+      }
+      Router.EnterServer({serverUrl: youtrackUrl});
+    },
+    onLogIn: authParams => dispatch(applyAuthorization(authParams)),
     onShowDebugView: () => dispatch(openDebugView())
   };
 };
 
-export default connect(mapStateToProps, mapDispatchToProps)(LogIn);
+// Needed to have a possibility to override callback by own props
+const mergeProps = (stateProps, dispatchProps) => {
+  return {
+    ...dispatchProps,
+    ...stateProps
+  };
+};
+
+export default connect(mapStateToProps, mapDispatchToProps, mergeProps)(LogIn);

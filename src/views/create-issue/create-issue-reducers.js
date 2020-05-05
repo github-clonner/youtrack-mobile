@@ -2,7 +2,7 @@
 import {createReducer} from 'redux-create-reducer';
 import * as types from './create-issue-action-types';
 import {LOG_OUT} from '../../actions/action-types';
-import type {CustomField, FieldValue} from '../../flow/CustomFields';
+import type {CustomField, FieldValue, Attachment} from '../../flow/CustomFields';
 import type {IssueFull} from '../../flow/Issue';
 
 const notSelectedProject = {
@@ -45,7 +45,7 @@ export default createReducer(initialState, {
     return {...state, predefinedDraftId: action.draftId};
   },
   [types.SET_ISSUE_DRAFT](state: CreateIssueState, action: {issue: IssueFull}): CreateIssueState {
-    return {...state, issue: action.issue};
+    return {...state, issue: {...state.issue, ...action.issue}};
   },
   [types.RESET_ISSUE_DRAFT](state: CreateIssueState): CreateIssueState {
     return {
@@ -125,16 +125,25 @@ export default createReducer(initialState, {
   [types.STOP_IMAGE_ATTACHING](state: CreateIssueState): CreateIssueState {
     return {...state, attachingImage: null};
   },
+  [types.REMOVE_ATTACHMENT](state: CreateIssueState, action: {attachment: Attachment}): CreateIssueState {
+    return {
+      ...state,
+      issue: {
+        ...state.issue,
+        attachments: state.issue.attachments.filter(attach => attach !== action.attachment)
+      }
+    };
+  },
   [types.SET_ISSUE_FIELD_VALUE](state: CreateIssueState, action: {field: CustomField, value: FieldValue}): CreateIssueState {
     const {field, value} = action;
     return {
       ...state,
       issue: {
-          ...state.issue,
-          fields: [...state.issue.fields].map(it => {
-            return it === field ? {...it, value} : it;
-          })
-        }
+        ...state.issue,
+        fields: [...state.issue.fields].map(it => {
+          return it === field ? {...it, value} : it;
+        })
+      }
     };
   }
 });

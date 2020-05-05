@@ -9,13 +9,17 @@ module.exports = {
     'react',
     'react-native',
     'flowtype',
-    'import'
+    'import',
+    'jest'
   ],
   'rules': {
     'no-unused-vars': [ERROR, {'vars': 'local', 'args': 'none'}],
     'no-console': ERROR,
     'quotes': [ERROR, 'single', {'allowTemplateLiterals': true}],
     'semi': ERROR,
+    'indent': [ERROR, 2],
+    'no-multi-spaces': ERROR,
+    'eqeqeq': ERROR,
 
     //ES6
     'constructor-super': ERROR,
@@ -28,6 +32,7 @@ module.exports = {
     'no-dupe-class-members': ERROR,
     'no-this-before-super': ERROR,
     'require-yield': OFF,
+    'no-useless-escape': OFF,
 
     //Modules
     'import/no-commonjs': ERROR,
@@ -45,9 +50,17 @@ module.exports = {
     'react/jsx-uses-vars': ERROR,
     'react-native/no-unused-styles': ERROR,
     'react-native/split-platform-components': ERROR,
+    "react-native/no-raw-text": ERROR,
 
     'flowtype/define-flow-type': WARNING,
-    'flowtype/no-weak-types': OFF
+    'flowtype/no-weak-types': OFF,
+
+    //Jest
+    'jest/no-disabled-tests': 'warn',
+    'jest/no-focused-tests': 'error',
+    'jest/no-identical-title': 'error',
+    'jest/prefer-to-have-length': 'warn',
+    'jest/valid-expect': 'error'
   },
   'env': {
     'es6': true,
@@ -59,6 +72,7 @@ module.exports = {
   'globals': {
     'fetch': true,
     'console': true,
+    'requestAnimationFrame': true,
     'expect': true
   }
 };

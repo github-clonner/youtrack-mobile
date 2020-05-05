@@ -1,17 +1,23 @@
 /* @flow */
-import {View, ScrollView, Text, TouchableWithoutFeedback, TouchableOpacity, Image, Linking, Dimensions, Alert} from 'react-native';
+import {View, ScrollView, Text, TouchableWithoutFeedback, TouchableOpacity, Linking} from 'react-native';
 import React, {Component} from 'react';
 import styles from './menu.styles';
-import {VERSION_STRING} from '../../components/usage/usage';
-import {formatYouTrackURL} from '../../components/config/config';
-import getTopPadding from '../../components/header/header__top-padding';
+import {VERSION_STRING} from '../usage/usage';
 import Drawer from 'react-native-drawer';
-import Router from '../../components/router/router';
-import Auth from '../../components/auth/auth';
-import clicksToShowCounter from '../../components/debug-view/clicks-to-show-counter';
-import {next, logOut as logOutIcon} from '../../components/icon/icon';
+import Router from '../router/router';
+import Auth from '../auth/auth';
+import MenuItem from './menu__item';
+import clicksToShowCounter from '../debug-view/clicks-to-show-counter';
 import {connect} from 'react-redux';
-import {logOut, openMenu, closeMenu, openDebugView} from '../../actions/app-actions';
+import {
+  openMenu,
+  closeMenu,
+  openFeaturesView,
+} from '../../actions/app-actions';
+
+import type {AgileUserProfile} from '../../flow/Agile';
+import Feature from '../feature/feature';
+import ConnectedAccounts from './menu__connected-accounts';
 
 const CURRENT_YEAR = (new Date()).getFullYear();
 const MENU_WIDTH = 280;
@@ -26,113 +32,103 @@ type Props = {
   show: boolean,
   auth: Auth,
   issueQuery: ?string,
-  onBeforeLogOut: () => any,
-  onLogOut: () => any,
+  agileProfile: AgileUserProfile,
   onOpen: () => any,
   onClose: () => any,
-  openDebugView: () => any
+  openFeaturesView: () => any
 };
 
 type DefaultProps = {
   onOpen: () => any,
-  onClose: () => any,
-  onBeforeLogOut: () => any
+  onClose: () => any
 };
 
 export class Menu extends Component<Props, void> {
   static defaultProps: DefaultProps = {
     onOpen: () => {},
-    onClose: () => {},
-    onBeforeLogOut: () => {}
+    onClose: () => {}
   };
 
   _openIssueList = () => {
     this.props.onClose();
-    Router.IssueList({auth: this.props.auth});
-  }
+    Router.IssueList();
+  };
 
   _openAgileBoard = () => {
     this.props.onClose();
-    Router.AgileBoard({auth: this.props.auth});
-  }
-
-  _logOut = () => {
-    Alert.alert(
-      'Confirm logout',
-      'Do you really want to log out?',
-      [
-        {text: 'Cancel', style: 'cancel'},
-        {
-          text: 'OK',
-          onPress: () => {
-            this.props.onBeforeLogOut();
-            this.props.onLogOut();
-            this.props.onClose();
-          }
-        }
-      ],
-      {cancelable: true}
-    );
+    Router.AgileBoard();
   };
 
+  _openInbox = () => {
+    this.props.onClose();
+    Router.Inbox();
+  };
+
+  _getSelectedAgileBoard = () => {
+    const {agileProfile} = this.props;
+
+    if (!agileProfile || !agileProfile.defaultAgile) {
+      return '';
+    }
+
+    const lastAgileName = agileProfile.defaultAgile?.name || '';
+    let lastSprintName;
+
+    if (agileProfile.visitedSprints) {
+      lastSprintName = agileProfile.visitedSprints.find(
+        sprint => sprint.agile && (sprint.agile.id === agileProfile.defaultAgile?.id)
+      )?.name || '';
+    }
+
+    return [lastAgileName, lastSprintName].filter(Boolean).join(', ');
+  };
 
   _renderMenu() {
-    const {height} = Dimensions.get('window');
-    const {auth, issueQuery, openDebugView} = this.props;
+    const {auth, issueQuery, openFeaturesView} = this.props;
     if (!auth) { //TODO: menu renders right after logOut by some reason.
       return null;
     }
-    const user = auth.currentUser;
-    if (!user) {
-      return <View/>;
-    }
-    const backendUrl = auth.config.backendUrl;
-    const avatarUrl = user.profile && user.profile.avatar && user.profile.avatar.url;
 
     return (
-      <ScrollView style={styles.scrollContainer}>
-        <View style={[styles.menuContainer, {paddingTop: getTopPadding(), minHeight: height}]}>
-          <View style={styles.profileContainer}>
-            <TouchableWithoutFeedback onPress={() => clicksToShowCounter(openDebugView)}>
-              <Image style={styles.currentUserAvatarImage} source={{uri: avatarUrl}}></Image>
-            </TouchableWithoutFeedback>
-
-            <Text style={styles.profileName}>{user.name}</Text>
-
-            <TouchableOpacity style={styles.logOutButton} onPress={this._logOut}>
-              <Image style={styles.logoutIcon} source={logOutIcon}></Image>
-            </TouchableOpacity>
-          </View>
+      <ScrollView
+        testID="menuContainer"
+        style={styles.scrollContainer}>
+        <View style={styles.menuContainer}>
+          <View style={styles.accounts}><ConnectedAccounts/></View>
 
           <View style={styles.menuItems}>
-            <TouchableOpacity activeOpacity={0.4} style={styles.menuItemButton} onPress={this._openIssueList}>
-              <View style={styles.menuItemTopLine}>
-                <Text style={styles.menuItemText}>Issues</Text>
-                <Image style={styles.menuItemIcon} source={next}></Image>
-              </View>
-              <Text style={styles.menuItemSubtext}>{issueQuery || 'No query'}</Text>
-            </TouchableOpacity>
+            <MenuItem
+              label={'Issues'}
+              description={issueQuery || 'No query'}
+              onPress={this._openIssueList}
+            />
 
-            <TouchableOpacity activeOpacity={0.4} style={styles.menuItemButton} onPress={this._openAgileBoard}>
-              <View style={styles.menuItemTopLine}>
-                <Text style={styles.menuItemText}>Agile Boards</Text>
-                <Image style={styles.menuItemIcon} source={next}></Image>
-              </View>
-              <Text style={styles.menuItemSubtext}>Alpha version</Text>
-            </TouchableOpacity>
+            <MenuItem
+              label={'Agile Boards'}
+              testId="pageAgileBoards"
+              description={this._getSelectedAgileBoard()}
+              onPress={this._openAgileBoard}
+            />
+
+            <Feature version={'2018.3'}>
+              <MenuItem
+                label={'Notifications'}
+                description={''}
+                onPress={this._openInbox}
+              />
+            </Feature>
           </View>
 
-          <View style={styles.flexSpacer}/>
-
           <View style={styles.menuFooter}>
-            <Text style={styles.footerText}>YouTrack Mobile {VERSION_STRING}</Text>
-            <Text style={styles.footerText}>{formatYouTrackURL(backendUrl)}</Text>
+            <TouchableWithoutFeedback onPress={() => clicksToShowCounter(openFeaturesView, 'open features list')}>
+              <Text style={styles.footerText}>YouTrack Mobile {VERSION_STRING}</Text>
+            </TouchableWithoutFeedback>
 
-            <View style={styles.spacer}></View>
+            <View style={styles.spacer}/>
             <Text style={styles.footerText}>© 2000—{CURRENT_YEAR} JetBrains</Text>
             <Text style={styles.footerText}>All rights reserved</Text>
 
-            <View style={styles.spacer}></View>
+            <View style={styles.spacer}/>
             <TouchableOpacity style={styles.buttonLink} onPress={openPrivacyPolicy}>
               <Text style={styles.linkText}>Privacy Policy</Text>
             </TouchableOpacity>
@@ -147,6 +143,7 @@ export class Menu extends Component<Props, void> {
 
     return (
       <Drawer
+        testID="menuDrawer"
         type="static"
         open={show}
         content={this._renderMenu()}
@@ -168,6 +165,7 @@ const mapStateToProps = (state, ownProps) => {
     show: state.app.showMenu,
     auth: state.app.auth,
     issueQuery: state.issueList.query,
+    agileProfile: state.agile.profile,
     ...ownProps
   };
 };
@@ -176,8 +174,7 @@ const mapDispatchToProps = (dispatch) => {
   return {
     onOpen: () => dispatch(openMenu()),
     onClose: () => dispatch(closeMenu()),
-    onLogOut: () => dispatch(logOut()),
-    openDebugView: () => dispatch(openDebugView())
+    openFeaturesView: () => dispatch(openFeaturesView()),
   };
 };
 

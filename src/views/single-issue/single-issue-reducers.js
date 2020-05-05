@@ -4,13 +4,20 @@ import * as types from './single-issue-action-types';
 import {ON_NAVIGATE_BACK} from '../../actions/action-types';
 import type {IssueFull} from '../../flow/Issue';
 import type {CustomField, FieldValue, IssueProject, CommandSuggestionResponse, IssueComment} from '../../flow/CustomFields';
+import type {WorkTimeSettings} from '../../flow/WorkTimeSettings';
+import type {IssueActivity} from '../../flow/Activity';
+import type {User} from '../../flow/User';
 
 export type State = {
   issueId: string,
   issue: IssueFull,
   unloadedIssueState: ?State,
   isRefreshing: boolean,
-  fullyLoaded: boolean,
+  issueLoaded: boolean,
+  issueLoadingError: ?Error,
+  commentsLoaded: boolean,
+  tmpIssueComments: ?Array<IssueComment>,
+  commentsLoadingError: ?Error,
   editMode: boolean,
   isSavingEditedIssue: boolean,
   attachingImage: ?Object,
@@ -25,15 +32,30 @@ export type State = {
   showCommandDialog: boolean,
   initialCommand: string,
   commandSuggestions: ?CommandSuggestionResponse,
-  commandIsApplying: boolean
+  commandIsApplying: boolean,
+  isSelectOpen: boolean,
+  selectProps: Object,
+  activityLoaded: boolean,
+  activityPage: ?Array<IssueActivity>,
+  activitiesLoadingError: ?Error,
+  activitiesEnabled: boolean,
+  issueActivityTypes: Array<Object>,
+  issueActivityEnabledTypes: Array<Object>,
+  workTimeSettings: ?WorkTimeSettings,
+  user: User,
+  updateUserAppearanceProfile: Function
 };
 
-const initialState: State = {
+export const initialState: State = {
   unloadedIssueState: null,
   issueId: '',
   issue: null,
   isRefreshing: false,
-  fullyLoaded: false,
+  issueLoaded: false,
+  issueLoadingError: null,
+  commentsLoaded: false,
+  tmpIssueComments: null,
+  commentsLoadingError: null,
   editMode: false,
   isSavingEditedIssue: false,
   attachingImage: null,
@@ -48,7 +70,18 @@ const initialState: State = {
   showCommandDialog: false,
   initialCommand: '',
   commandSuggestions: null,
-  commandIsApplying: false
+  commandIsApplying: false,
+  isSelectOpen: false,
+  selectProps: {},
+  activityLoaded: false,
+  activityPage: null,
+  activitiesLoadingError: null,
+  activitiesEnabled: false,
+  issueActivityTypes: [],
+  issueActivityEnabledTypes: [],
+  workTimeSettings: null,
+  user: null,
+  updateUserAppearanceProfile: null
 };
 
 export default createReducer(initialState, {
@@ -72,7 +105,32 @@ export default createReducer(initialState, {
     return {...state, isRefreshing: false};
   },
   [types.RECEIVE_ISSUE]: (state: State, action: {issue: IssueFull}): State => {
-    return {...state, fullyLoaded: true, issue: action.issue};
+    const {issue} = state;
+    return {
+      ...state,
+      issueLoaded: true,
+      issueLoadingError: null,
+      issue: {
+        ...action.issue,
+        comments: (issue || {}).comments ? issue.comments : state.tmpIssueComments
+      }
+    };
+  },
+  [types.RECEIVE_ISSUE_ERROR]: (state: State, action: {error: Error}): State => {
+    return {...state, issueLoadingError: action.error};
+  },
+  [types.RECEIVE_COMMENTS]: (state: State, action: {comments: Array<IssueComment>}): State => {
+    const {comments} = action;
+    return {
+      ...state,
+      commentsLoaded: true,
+      tmpIssueComments: comments,
+      commentsLoadingError: null,
+      issue: state.issue ? {...state.issue, comments} : state.issue
+    };
+  },
+  [types.RECEIVE_COMMENTS_ERROR]: (state: State, action: {error: Error}): State => {
+    return {...state, commentsLoadingError: action.error};
   },
   [types.SHOW_COMMENT_INPUT]: (state: State): State => {
     return {...state, addCommentMode: true};
@@ -94,10 +152,7 @@ export default createReducer(initialState, {
       ...state,
       issue: {
         ...state.issue,
-        comments: [
-          ...state.issue.comments,
-          action.comment
-        ]
+        comments: [].concat(state.issue.comments || []).concat(action.comment)
       }
     };
   },
@@ -109,23 +164,32 @@ export default createReducer(initialState, {
   },
   [types.RECEIVE_UPDATED_COMMENT]: (state: State, action: {comment: IssueComment}): State => {
     const {comment} = action;
+    const activityPage = (state.activityPage || []).map(activity => {
+      if (Array.isArray(activity.added)) {
+        activity.added = activity.added.map(it => it.id === comment.id ? comment : it);
+      }
+      return activity;
+    });
+
     return {
       ...state,
       issue: {
         ...state.issue,
-        comments: state.issue.comments.map(it => it.id === comment.id ? comment : it)
+        comments: (state.issue.comments || []).map(it => it.id === comment.id ? comment : it),
+        activityPage: activityPage
       }
     };
   },
-  [types.DELETE_COMMENT]: (state: State, action: {comment: IssueComment}): State => {
-    const {comment} = action;
-    return {
-      ...state,
+  [types.DELETE_COMMENT]: (state: State, action: {comment: IssueComment, activityId?: string}): State => {
+    const stateUpdate = state.activityPage ? {
+      activityPage: (state.activityPage || []).filter(it => it.id !== action.activityId)
+    } : {
       issue: {
         ...state.issue,
-        comments: state.issue.comments.filter(it => it.id !== comment.id)
+        comments: (state.issue.comments || []).filter(it => it.id !== action.comment.id),
       }
     };
+    return {...state, ...stateUpdate};
   },
   [types.START_EDITING_ISSUE]: (state: State): State => {
     return {
@@ -171,11 +235,11 @@ export default createReducer(initialState, {
     return {
       ...state,
       issue: {
-          ...state.issue,
-          fields: [...state.issue.fields].map(it => {
-            return it === field ? {...it, value} : it;
-          })
-        }
+        ...state.issue,
+        fields: [...state.issue.fields].map(it => {
+          return it === field ? {...it, value} : it;
+        })
+      }
     };
   },
   [types.SET_PROJECT]: (state: State, action: {project: IssueProject}): State => {
@@ -270,4 +334,51 @@ export default createReducer(initialState, {
   [types.STOP_APPLYING_COMMAND]: (state: State): State => {
     return {...state, commandIsApplying: false};
   },
+  [types.RECEIVE_VISIBILITY_OPTIONS]: (state: State, action: {options: Object}): State => {
+    return {...state, visibilityOptions: action.options};
+  },
+  [types.OPEN_ISSUE_SELECT]: (state: State, action: Object) => {
+    return {
+      ...state,
+      isSelectOpen: true,
+      selectProps: action.selectProps
+    };
+  },
+  [types.CLOSE_ISSUE_SELECT]: (state: State) => {
+    return {
+      ...state,
+      isSelectOpen: false,
+      selectProps: null,
+      addCommentMode: true
+    };
+  },
+  [types.SET_COMMENT_VISIBILITY]: (state: State, action: Object) => {
+    return {...state, editingComment: action.comment};
+  },
+
+  [types.RECEIVE_ACTIVITY_PAGE]: (state: State, action: {activityPage: Array<IssueActivity>}): State => {
+    const {activityPage} = action;
+    return {
+      ...state,
+      activityLoaded: true,
+      activityPage: activityPage,
+      activitiesLoadingError: null
+    };
+  },
+  [types.RECEIVE_ACTIVITY_API_AVAILABILITY]: (state: State, action: Object): State => {
+    return {...state, activitiesEnabled: action.activitiesEnabled};
+  },
+  [types.RECEIVE_ACTIVITY_CATEGORIES]: (state: State, action: Object): State => {
+    return {
+      ...state,
+      issueActivityTypes: action.issueActivityTypes,
+      issueActivityEnabledTypes: action.issueActivityEnabledTypes
+    };
+  },
+  [types.RECEIVE_WORK_TIME_SETTINGS]: (state: State, action: {workTimeSettings: WorkTimeSettings}): State => {
+    return {
+      ...state,
+      workTimeSettings: action.workTimeSettings
+    };
+  }
 });

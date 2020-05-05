@@ -5,6 +5,7 @@ import styles from './select.styles';
 import ColorField from '../color-field/color-field';
 import {notifyError} from '../notification/notification';
 import {checkWhite} from '../icon/icon';
+import Avatar from '../avatar/avatar';
 import {COLOR_PLACEHOLDER, UNIT} from '../variables/variables';
 import getTopPadding, {onHeightChange, isIphoneX} from '../header/header__top-padding';
 
@@ -22,7 +23,9 @@ export type Props = {
   multi: boolean,
   autoFocus: boolean,
   emptyValue: ?string,
-  style?: any
+  style?: any,
+  noFilter?: boolean,
+  topPadding?: number
 };
 
 type State = {
@@ -37,7 +40,8 @@ export default class Select extends Component<Props, State> {
   static defaultProps = {
     placeholder: 'Search item',
     autoFocus: false,
-    onChangeSelection: (items: Array<Object>) => null
+    onChangeSelection: (items: Array<Object>) => null,
+    noFilter: false
   };
 
   constructor() {
@@ -147,7 +151,7 @@ export default class Select extends Component<Props, State> {
     return (
       <TouchableOpacity key={item.id} style={styles.row} onPress={() => this._onTouchItem(item)}>
         <View style={styles.selectItemValue}>
-          {item.avatarUrl && <Image style={styles.itemIcon} source={{uri: item.avatarUrl}}/>}
+          {item.avatarUrl && <Avatar userName={this.props.getTitle(item)} size={32} style={styles.itemIcon} source={{uri: item.avatarUrl}}/>}
 
           {this._renderTitle(item)}
         </View>
@@ -158,13 +162,16 @@ export default class Select extends Component<Props, State> {
   }
 
   render() {
-    const {multi, autoFocus, style, placeholder, onCancel} = this.props;
-
-    const paddingTop = isIphoneX ? (getTopPadding() - UNIT) : (getTopPadding() - UNIT * 2);
+    const {multi, autoFocus, style, placeholder, onCancel, noFilter, topPadding} = this.props;
+    const paddingTop = (
+      typeof topPadding === 'number'
+        ? topPadding
+        : (isIphoneX ? (getTopPadding() - UNIT) : (getTopPadding() - UNIT * 2))
+    );
 
     return (
       <View style={[styles.container, style, {paddingTop}]}>
-        <View style={styles.inputWrapper}>
+        {!noFilter && <View style={styles.inputWrapper}>
           <TextInput
             placeholder={placeholder}
             keyboardAppearance="dark"
@@ -180,12 +187,12 @@ export default class Select extends Component<Props, State> {
               this._onSearch(text);
             }}
             style={styles.searchInput}/>
-            <TouchableOpacity style={styles.cancelButton} onPress={onCancel}>
-              <Text style={styles.cancelButtonText}>Cancel</Text>
-            </TouchableOpacity>
-        </View>
+          <TouchableOpacity style={styles.cancelButton} onPress={onCancel}>
+            <Text style={styles.cancelButtonText}>Cancel</Text>
+          </TouchableOpacity>
+        </View>}
         <ScrollView keyboardShouldPersistTaps="handled"
-                    keyboardDismissMode="on-drag">
+          keyboardDismissMode="on-drag">
           {this._renderEmptyValueItem()}
           {this.state.filteredItems.map(item => this._renderRow(item))}
 

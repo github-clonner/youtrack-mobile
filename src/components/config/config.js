@@ -1,50 +1,34 @@
 /* @flow */
-import {AsyncStorage} from 'react-native';
 import UrlParse from 'url-parse';
+import {USER_AGENT} from '../usage/usage';
 import log from '../log/log';
-import type {AppConfig, AppConfigFilled} from '../../flow/AppConfig';
+import type {AppConfig} from '../../flow/AppConfig';
+import {YT_SUPPORTED_VERSION} from '../error-message/error-text-messages';
 
 const MIN_YT_VERSION = 7.0;
-const BACKEND_CONFIG_STORAGE_KEY = 'BACKEND_CONFIG_STORAGE_KEY';
 const PROTOCOL_REGEXP = /^https?:\/\//i;
 const YOUTRACK_CONTEXT_REGEXP = /\/youtrack$/i;
 const VERSION_DETECT_FALLBACK_URL = '/rest/workflow/version';
 
-const config: AppConfig = {
-  backendUrl: null,
-  statisticsEnabled: null,
-  version: null,
-  auth: {
-    serverUri: null,
-    clientId: null,
-    clientSecret: null,
-    youtrackServiceId: null,
-    scopes: 'Hub YouTrack',
-    landingUrl: 'ytoauth://landing.url'
-  }
-};
+
+export function getDefaultConfig(): AppConfig {
+  return {
+    backendUrl: null,
+    statisticsEnabled: null,
+    version: null,
+    auth: {
+      serverUri: null,
+      clientId: null,
+      clientSecret: null,
+      youtrackServiceId: null,
+      scopes: `Hub YouTrack`,
+      landingUrl: 'ytoauth://landing.url'
+    }
+  };
+}
 
 class IncompatibleYouTrackError extends Error {
   isIncompatibleYouTrackError = true;
-}
-
-async function storeConfig(config: AppConfigFilled): Promise<AppConfigFilled> {
-  log.log(`Storing config: ${JSON.stringify(config)}`);
-  return AsyncStorage.setItem(
-    BACKEND_CONFIG_STORAGE_KEY,
-    JSON.stringify(config)
-  ).then(() => config);
-}
-
-
-async function getStoredConfig(): Promise<?AppConfigFilled> {
-  const rawConfig: string = await AsyncStorage.getItem(BACKEND_CONFIG_STORAGE_KEY);
-
-  if (rawConfig) {
-    return JSON.parse(rawConfig);
-  }
-
-  return null;
 }
 
 function handleIncompatibleYouTrack(response: Object, ytUrl: string) {
@@ -52,16 +36,16 @@ function handleIncompatibleYouTrack(response: Object, ytUrl: string) {
 
   //Handle very old (6.5 and below) instances
   if (response.error === 'Not Found') {
-    throw new IncompatibleYouTrackError(`Cannot connect to ${ytUrl} - this version of YouTrack is not supported. YouTrack Mobile requires version 7.0 or later.`);
+    throw new IncompatibleYouTrackError(`Cannot connect to ${ytUrl} - this version of YouTrack is not supported. ${YT_SUPPORTED_VERSION}`);
   }
 
   //Handle config load error
   if (response.error_developer_message) {
-    throw new IncompatibleYouTrackError(`Unable to connect to this YouTrack instance. Check that your YouTrack version is 7.0 or later. ${response.error_developer_message}`);
+    throw new IncompatibleYouTrackError(`Unable to connect to this YouTrack instance. ${YT_SUPPORTED_VERSION} ${response.error_developer_message}`);
   }
 
   if (parseFloat(response.version) < MIN_YT_VERSION) {
-    throw new IncompatibleYouTrackError(`YouTrack Mobile requires YouTrack version 7.0 or later. ${ytUrl} has version ${response.version}.`);
+    throw new IncompatibleYouTrackError(`${YT_SUPPORTED_VERSION} ${ytUrl} has version ${response.version}.`);
   }
 
   if (!response.mobile || !response.mobile.serviceId) {
@@ -93,6 +77,7 @@ async function loadConfig(ytUrl: string) {
   return fetch(url, {
     method: 'GET',
     headers: {
+      'User-Agent': USER_AGENT,
       'Accept': 'application/json, text/plain, */*'
     }
   })
@@ -104,6 +89,7 @@ async function loadConfig(ytUrl: string) {
     .then(res => {
       handleIncompatibleYouTrack(res, ytUrl);
 
+      const config = getDefaultConfig();
       config.backendUrl = ytUrl;
       config.statisticsEnabled = res.statisticsEnabled;
       config.version = res.version;
@@ -117,15 +103,14 @@ async function loadConfig(ytUrl: string) {
 
       return config;
     })
-    .then(storeConfig)
     .catch(err => {
       log.log(`Loading config failed with an error ${err && err.toString && err.toString()}`);
       // Catches "Unexpected token < in JSON at position 0" error
       if (err instanceof SyntaxError) {
-        throw new Error('Invalid server response. The URL is either an unsupported YouTrack version or is not a YouTrack instance. YouTrack Mobile requires YouTrack version 7.0 or later.');
+        throw new Error(`Invalid server response. The URL is either an unsupported YouTrack version or is not a YouTrack instance. ${YT_SUPPORTED_VERSION}`);
       }
       return Promise.reject(err);
     });
 }
 
-export {loadConfig, getStoredConfig, formatYouTrackURL, handleRelativeUrl, VERSION_DETECT_FALLBACK_URL};
+export {loadConfig, formatYouTrackURL, handleRelativeUrl, VERSION_DETECT_FALLBACK_URL};

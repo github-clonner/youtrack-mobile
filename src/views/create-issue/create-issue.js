@@ -1,5 +1,5 @@
 /* @flow */
-import {ScrollView, View, Text, TouchableOpacity, Image, Platform} from 'react-native';
+import {ScrollView, View, Text, TouchableOpacity, Image} from 'react-native';
 import React, {Component} from 'react';
 
 import styles from './create-issue.styles';
@@ -10,16 +10,15 @@ import {getApi} from '../../components/api/api__instance';
 import {attach, tag, next} from '../../components/icon/icon';
 import CustomFieldsPanel from '../../components/custom-fields-panel/custom-fields-panel';
 import AttachmentsRow from '../../components/attachments-row/attachments-row';
-import KeyboardSpacer from 'react-native-keyboard-spacer';
 import IssueSummary from '../../components/issue-summary/issue-summary';
 import {bindActionCreators} from 'redux';
 import {connect} from 'react-redux';
 import * as createIssueActions from './create-issue-actions';
 import type IssuePermissions from '../../components/issue-permissions/issue-permissions';
 import type {CreateIssueState} from './create-issue-reducers';
+import OpenScanButton from '../../components/scan/open-scan-button';
+import KeyboardSpacerIOS from '../../components/platform/keyboard-spacer.ios';
 
-export const PROJECT_ID_STORAGE_KEY = 'YT_DEFAULT_CREATE_PROJECT_ID_STORAGE';
-export const DRAFT_ID_STORAGE_KEY = 'DRAFT_ID_STORAGE_KEY';
 const CATEGORY_NAME = 'Create issue view';
 
 type AdditionalProps = {
@@ -36,7 +35,7 @@ class CreateIssue extends Component<Props, void> {
     usage.trackScreenView(CATEGORY_NAME);
   }
 
-  componentWillMount() {
+  UNSAFE_componentWillMount() {
     this.props.initializeWithDraftOrProject(this.props.predefinedDraftId);
   }
 
@@ -80,7 +79,8 @@ class CreateIssue extends Component<Props, void> {
       processing,
       attachImage,
       updateFieldValue,
-      updateProject
+      updateProject,
+      removeAttachment
     } = this.props;
 
     const canCreateIssue = issue.summary && issue.project.id && !processing && !attachingImage;
@@ -90,9 +90,10 @@ class CreateIssue extends Component<Props, void> {
     return (
       <View style={styles.container}>
         <Header leftButton={<Text>Cancel</Text>}
-                onBack={storeDraftAndGoBack}
-                rightButton={createButton}
-                onRightButtonClick={() => canCreateIssue && createIssue()}>
+          onBack={storeDraftAndGoBack}
+          rightButton={createButton}
+          extraButton={<OpenScanButton/>}
+          onRightButtonClick={() => canCreateIssue && createIssue()}>
           <Text style={issueStyles.headerText}>New Issue</Text>
         </Header>
         <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="interactive">
@@ -111,13 +112,14 @@ class CreateIssue extends Component<Props, void> {
               onDescriptionChange={setIssueDescription}
             />
 
-              {issue.project.id &&
+            {issue.project.id &&
               <View style={styles.attachesContainer}>
 
                 <AttachmentsRow
                   attachments={issue.attachments}
                   attachingImage={attachingImage}
                   imageHeaders={getApi().auth.getAuthorizationHeaders()}
+                  onRemoveImage={removeAttachment}
                 />
 
                 <View style={styles.attachButtonsContainer}>
@@ -154,12 +156,12 @@ class CreateIssue extends Component<Props, void> {
           api={getApi()}
           issue={issue}
           canEditProject={true}
+          autoFocusSelect
           issuePermissions={issuePermissions}
           onUpdate={async (field, value) => await updateFieldValue(field, value)}
           onUpdateProject={async (project) => await updateProject(project)}
         />
-
-        {Platform.OS == 'ios' && <KeyboardSpacer style={{backgroundColor: 'black'}}/>}
+        <KeyboardSpacerIOS/>
       </View>
     );
   }

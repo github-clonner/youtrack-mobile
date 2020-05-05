@@ -34,7 +34,7 @@ const API = {
     });
   },
 
-  convertRelativeUrls: (items: Array<Object> = [], urlField: string, backendUrl: string) => {
+  convertRelativeUrls: (items: Array<Object> = [], urlField: string, backendUrl: string): Array<Object> => {
     return items.map(item => {
       if (!item[urlField]) {
         return item;
@@ -47,7 +47,7 @@ const API = {
   },
 
   //Ported from youtrack frontend
-  toField: function toFieldConstructor(fields: Array<string|Object>) {
+  toField: function toFieldConstructor(fields: Object|Array<string|Object>) {
     const toArray = function(object) {
       if (Array.isArray(object)) {
         return object;
@@ -92,26 +92,8 @@ const API = {
     };
   },
 
-  projectFieldTypeToFieldType(projectType: string, isMultiple: boolean) {
-    const map = {
-      'jetbrains.charisma.customfields.complex.user.UserProjectCustomField' : 'jetbrains.charisma.customfields.complex.user.SingleUserIssueCustomField',
-      'jetbrains.charisma.customfields.complex.version.VersionProjectCustomField' : 'jetbrains.charisma.customfields.complex.version.SingleVersionIssueCustomField',
-      'jetbrains.charisma.customfields.complex.state.StateProjectCustomField' : 'jetbrains.charisma.customfields.complex.state.StateIssueCustomField',
-      'jetbrains.charisma.customfields.complex.ownedField.OwnedProjectCustomField' : 'jetbrains.charisma.customfields.complex.ownedField.SingleOwnedIssueCustomField',
-      'jetbrains.charisma.customfields.complex.group.GroupProjectCustomField' : 'jetbrains.charisma.customfields.complex.group.SingleGroupIssueCustomField',
-      'jetbrains.charisma.customfields.complex.enumeration.EnumProjectCustomField' : 'jetbrains.charisma.customfields.complex.enumeration.SingleEnumIssueCustomField',
-      'jetbrains.charisma.customfields.complex.build.BuildProjectCustomField' : 'jetbrains.charisma.customfields.complex.build.SingleBuildIssueCustomField'
-    };
-    let fieldType = map[projectType];
-
-    if (isMultiple) {
-      fieldType = fieldType.replace('Single', 'Multi');
-    }
-    return fieldType;
-  },
-
   getIssueId(issue: AnyIssue) {
-    return `${issue.project.shortName}-${issue.numberInProject}`;
+    return issue.idReadable ? issue.idReadable : issue.id;
   },
 
   patchAllRelativeAvatarUrls(data: Object, backendUrl: string) {
@@ -127,7 +109,26 @@ const API = {
 
   stripHtml(commandPreview: string) {
     return commandPreview.replace(/<\/?[^>]+(>|$)/g, '');
+  },
+
+  removeDuplicatesByPropName(items: Array<Object>, valueName: string): Array<Object> {
+    if (!valueName) {
+      return items;
+    }
+
+    return (items || []).filter((item, index, it) =>
+      index === it.findIndex(i => i[valueName] === item[valueName])
+    );
+  },
+
+  equalsByProp(a: Array<Object>, b: Array<Object>, propName: string): boolean {
+    const _a = a.reduce((keys, it) => keys.concat(it[propName]), []);
+    const _b = b.reduce((keys, it) => keys.concat(it[propName]), []);
+
+    return _a.length === _b.length && _a.every((value, index) => value === _b[index]);
+
   }
+
 };
 
 export default API;

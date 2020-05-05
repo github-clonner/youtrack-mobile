@@ -1,8 +1,17 @@
 import React, {createElement} from 'react';
 import {Easing, Animated} from 'react-native';
-import {StackNavigator, NavigationActions} from 'react-navigation';
-import transitionConfigs from 'react-navigation/src/views/CardStack/TransitionConfigs';
-import cardInterpolator from 'react-navigation/src/views/CardStack/CardStackStyleInterpolator';
+
+import StackViewStyleInterpolator from 'react-navigation-stack/lib/module/views/StackView/StackViewStyleInterpolator';
+import {
+  createStackNavigator,
+  createAppContainer,
+  StackActions,
+  NavigationActions,
+  StackViewTransitionConfigs
+} from 'react-navigation';
+
+import {getStorageState, flushStoragePart} from '../storage/storage';
+import log from '../log/log';
 
 const TransitionSpec = {
   duration: 500,
@@ -12,7 +21,7 @@ const TransitionSpec = {
 
 const SlideFromRight = {
   transitionSpec: TransitionSpec,
-  screenInterpolator: cardInterpolator.forHorizontal
+  screenInterpolator: StackViewStyleInterpolator.forHorizontal
 };
 
 /**
@@ -20,6 +29,8 @@ const SlideFromRight = {
  */
 class Router {
   _currentRoute = null;
+  rootRoutes = [];
+  onDispatch = () => {};
 
   constructor(navigator) {
     this._navigator = null;
@@ -33,7 +44,7 @@ class Router {
       return;
     }
     this._navigator = navigator;
-  }
+  };
 
   getTransitionConfig = () => {
     if (!this._navigator) {
@@ -45,11 +56,11 @@ class Router {
     const route = this.routes[currentRouteName];
 
     if (route.modal || this._modalTransition) {
-      return transitionConfigs.defaultTransitionConfig(null, null, true);
+      return StackViewTransitionConfigs.defaultTransitionConfig(null, null, true);
     }
 
     return SlideFromRight;
-  }
+  };
 
   registerRoute({name, component, props, type, modal}) {
     this.routes[name] = {
@@ -57,25 +68,37 @@ class Router {
       type,
       props,
       modal,
-      navigationOptions: {
+      defaultNavigationOptions: {
         gesturesEnabled: true
       }
     };
 
     if (!this[name]) {
-      this[name] = (props) => this.navigate(name, props);
+      this[name] = (...args) => this.navigate(name, ...args);
     }
   }
 
   finalizeRoutes(initialRouteName) {
-    this.AppNavigator = StackNavigator(this.routes, {
+    const MainNavigator = createStackNavigator(this.routes, {
       initialRouteName,
       headerMode: 'none',
       transitionConfig: this.getTransitionConfig,
     });
+
+    this.AppNavigator = createAppContainer(MainNavigator);
   }
 
-  navigate(routeName, props) {
+  setOnDispatchCallback(onDispatch: Function<Object, ?string>) {
+    this.onDispatch = onDispatch;
+  }
+
+  dispatch(data: Object, routeName?: string) {
+    this._navigator.dispatch(data);
+    this.onDispatch(routeName);
+  }
+
+  navigate(routeName, props, {forceReset} = {}) {
+    log.info(`Navigating to ${routeName}`, {...props, imageHeaders: 'CENSORED'});
     if (!this._navigator) {
       throw `Router.navigate: call setNavigator(navigator) first!`;
     }
@@ -84,24 +107,40 @@ class Router {
       throw `no such route ${routeName}`;
     }
 
+    if (this.rootRoutes.includes(routeName)) {
+      flushStoragePart({lastRoute: routeName});
+    }
+
     const newRoute = Object.assign({}, this.routes[routeName]);
     newRoute.props = Object.assign({}, newRoute.props, props);
 
-    if (newRoute.type === 'reset') {
-      return this._navigator.dispatch(NavigationActions.reset({
+    if (newRoute.type === 'reset' || forceReset) {
+      return this.dispatch(StackActions.reset({
         index: 0,
-        actions: [NavigationActions.navigate({routeName, params: newRoute.props})]
-      }));
+        actions: [NavigationActions.navigate({routeName, params: newRoute.props, key: Math.random().toString()})]
+      }), routeName);
     }
 
-    this._navigator.dispatch(NavigationActions.navigate({routeName, params: newRoute.props}));
+    this.dispatch(NavigationActions.navigate({
+      routeName,
+      params: newRoute.props,
+      key: Math.random().toString()
+    }), routeName);
+  }
+
+  navigateToDefaultRoute(props: Object & {issueId: string} = null) {
+    const defaultRoute = getStorageState().lastRoute || this.rootRoutes[0];
+    this.navigate(defaultRoute, props);
+    if (props && props.issueId) {
+      this.navigate('SingleIssue', props);
+    }
   }
 
   pop() {
     if (this._navigator.state.nav.routes.length <= 1) {
       return false;
     }
-    this._navigator.dispatch(NavigationActions.back());
+    this.dispatch(NavigationActions.back());
     return true;
   }
 
@@ -115,7 +154,7 @@ class Router {
       const closingView = prevNav.routes[prevNav.index];
       this.onBack(closingView);
     }
-  }
+  };
 
   renderNavigatorView() {
     const {AppNavigator} = this;

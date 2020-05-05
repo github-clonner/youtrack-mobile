@@ -1,12 +1,12 @@
 /* @flow */
-import {AsyncStorage} from 'react-native';
+import urlJoin from 'url-join';
 import Permissions from './auth__permissions';
+import {getStorageState, flushStoragePart} from '../storage/storage';
 import base64 from 'base64-js';
 import qs from 'qs';
 import log from '../log/log';
+import {USER_AGENT} from '../usage/usage';
 import type {AppConfigFilled} from '../../flow/AppConfig';
-
-const STORAGE_KEY = 'yt_mobile_auth';
 
 const ACCEPT_HEADER = 'application/json, text/plain, */*';
 const URL_ENCODED_TYPE = 'application/x-www-form-urlencoded';
@@ -19,57 +19,71 @@ function makeBtoa(str: string) {
   return base64.fromByteArray(byteArray);
 }
 
-declare type AuthParams = {refresh_token: string; access_token: string, token_type: string};
+export type AuthParams = {
+  refresh_token: string;
+  access_token: string,
+  token_type: string,
+  error_code?: string
+};
 
-export default class Auth {
+export type CurrentUser = {
+  id: string,
+  guest: boolean,
+  name: string,
+  profile?: {
+    avatar?: {
+      url?: string
+    }
+  },
+  endUserAgreementConsent?: {
+    accepted: boolean,
+    majorVersion: string,
+    minorVersion: string
+  }
+};
+
+export default class AuthTest {
   config: AppConfigFilled;
   authParams: ?AuthParams;
   permissions: Permissions;
-  currentUser: Object;
+  currentUser: CurrentUser;
   CHECK_TOKEN_URL: string;
   PERMISSIONS_CACHE_URL: string;
 
   constructor(config: AppConfigFilled) {
     this.authParams = null;
     this.config = config;
-    this.CHECK_TOKEN_URL = `${this.config.auth.serverUri}/api/rest/users/me?fields=id,guest,name,profile/avatar/url`;
+    this.CHECK_TOKEN_URL = urlJoin(this.config.auth.serverUri, '/api/rest/users/me?fields=id,guest,name,profile/avatar/url,endUserAgreementConsent(accepted,majorVersion,minorVersion)');
 
     const permissionsQueryString = qs.stringify({
       query: `service:{0-0-0-0-0} or service:{${config.auth.youtrackServiceId}}`,
       fields: 'permission/key,global,projects(id)'
     });
-    this.PERMISSIONS_CACHE_URL = `${this.config.auth.serverUri}/api/rest/permissions/cache?${permissionsQueryString}`;
+    this.PERMISSIONS_CACHE_URL = urlJoin(this.config.auth.serverUri, `/api/rest/permissions/cache?${permissionsQueryString}`);
   }
 
-  authorizeOAuth(code: string) {
-    return this.obtainTokenByOAuthCode(code)
-      .then(this.storeAuth.bind(this));
-  }
-
-  authorizeCredentials(login: string, pass: string) {
-    return this.obtainTokenByCredentials(login, pass)
-      .then(this.storeAuth.bind(this));
-  }
-
-  loadStoredAuthParams() {
+  loadStoredAuthParams(): Promise<void> {
     return this.readAuth()
       .then((authParams) => this.verifyToken(authParams))
-      .then((authParams) => this.loadPermissions(authParams))
-      .then((authParams) => this.authParams = authParams);
+      .then((authParams) => {
+        this.authParams = authParams;
+      });
   }
 
-  logOut() {
-    return AsyncStorage.removeItem(STORAGE_KEY).then(() => delete this.authParams);
+  async logOut() {
+    await flushStoragePart({authParams: null});
+    delete this.authParams;
   }
 
   obtainToken(body: string) {
     const config = this.config;
-    const hubTokenUrl = `${config.auth.serverUri}/api/rest/oauth2/token`;
+    const hubTokenUrl = urlJoin(config.auth.serverUri, '/api/rest/oauth2/token');
 
     return fetch(hubTokenUrl, {
       method: 'POST',
       headers: {
         'Accept': ACCEPT_HEADER,
+        'User-Agent': USER_AGENT,
         'Authorization': `Basic ${makeBtoa(`${config.auth.clientId}:${config.auth.clientSecret}`)}`,
         'Content-Type': URL_ENCODED_TYPE
       },
@@ -107,11 +121,11 @@ export default class Auth {
       '&access_type=offline',
       `&username=${encodeURIComponent(login)}`,
       `&password=${encodeURIComponent(password)}`,
-      `&scope=${this.config.auth.scopes}`
+      `&scope=${encodeURIComponent(this.config.auth.scopes)}`
     ].join(''));
   }
 
-  refreshToken() {
+  refreshToken(): Promise<AuthParams> {
     let token;
     return this.readAuth()
       .then((authParams: AuthParams) => {
@@ -122,15 +136,16 @@ export default class Auth {
         //store old refresh token
         token = authParams.refresh_token;
 
-        return fetch([
+        return fetch(urlJoin(
           config.auth.serverUri,
           `/api/rest/oauth2/token`,
           '?grant_type=refresh_token',
           `&refresh_token=${authParams.refresh_token}`
-        ].join(''), {
+        ), {
           method: 'POST',
           headers: {
             'Accept': ACCEPT_HEADER,
+            'User-Agent': USER_AGENT,
             'Authorization': `Basic ${makeBtoa(`${config.auth.clientId}:${config.auth.clientSecret}`)}`,
             'Content-Type': URL_ENCODED_TYPE
           }
@@ -149,9 +164,11 @@ export default class Auth {
         return authParams;
       })
       .then((authParams) => this.verifyToken(authParams))
-      .then((authParams) => this.loadPermissions(authParams))
-      .then(this.storeAuth.bind(this))
-      .then((authParams) => this.authParams = authParams);
+      .then((authParams) => this.storeAuth(authParams))
+      .then((authParams) => {
+        this.authParams = authParams;
+        return authParams;
+      });
   }
 
   getAuthorizationHeaders(authParams: ?AuthParams = this.authParams): {Authorization: string} {
@@ -159,19 +176,22 @@ export default class Auth {
       throw new Error('Auth: getAuthorizationHeaders called before authParams initialization');
     }
     return {
-      'Authorization': `${authParams.token_type} ${authParams.access_token}`
+      'Authorization': `${authParams.token_type} ${authParams.access_token}`,
+      'User-Agent': USER_AGENT
     };
   }
 
   /**
    * Not sure that check is still required.
    */
-  verifyToken(authParams: AuthParams) {
+  verifyToken(authParams: AuthParams): Promise<AuthParams> {
     log.info('Verifying token...');
 
     return fetch(this.CHECK_TOKEN_URL, {
       headers: {
         'Accept': ACCEPT_HEADER,
+        'Hub-API-Version': 2,
+        'User-Agent': USER_AGENT,
         ...this.getAuthorizationHeaders(authParams)
       }
     }).then((res) => {
@@ -199,15 +219,17 @@ export default class Auth {
       });
   }
 
-  loadPermissions(authParams: AuthParams) {
+  loadPermissions(authParams: AuthParams): Promise<AuthParams> {
     return fetch(this.PERMISSIONS_CACHE_URL, {
       headers: {
         'Accept': ACCEPT_HEADER,
+        'User-Agent': USER_AGENT,
         'Authorization': `${authParams.token_type} ${authParams.access_token}`
       }
     })
       .then((res) => res.json())
       .then((res) => {
+        log.info('Permissions loaded', res);
         this.permissions = new Permissions(res);
         return authParams;
       })
@@ -217,13 +239,16 @@ export default class Auth {
       });
   }
 
-  storeAuth(authParams: AuthParams) {
-    return AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(authParams))
-      .then(() => authParams);
+  async storeAuth(authParams: AuthParams) {
+    await flushStoragePart({authParams});
+    return authParams;
   }
 
-  readAuth() {
-    return AsyncStorage.getItem(STORAGE_KEY)
-      .then((authParamsString: string) => JSON.parse(authParamsString));
+  async readAuth(): Promise<AuthParams> {
+    const authParams: ?AuthParams = getStorageState().authParams;
+    if (!authParams) {
+      throw new Error('No stored auth params found');
+    }
+    return authParams;
   }
 }

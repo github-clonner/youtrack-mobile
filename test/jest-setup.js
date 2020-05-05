@@ -7,7 +7,8 @@ import log from '../src/components/log/log';
 import Enzyme from 'enzyme';
 import Adapter from 'enzyme-adapter-react-16';
 import chaiEnzyme from 'chai-enzyme';
-
+import mockAsyncStorage from '@react-native-community/async-storage/jest/async-storage-mock';
+import mockReactNativeNotification from './jest-mock__react-native-notifications';
 
 Enzyme.configure({adapter: new Adapter()});
 
@@ -19,8 +20,21 @@ chai.use(sinonChai);
 
 should();
 
-// Mocks for RNDeviceInfo
+
+// Modules mocks
+
+// RNDeviceInfo mock
 ReactNative.NativeModules.RNDeviceInfo = {
   uniqueId: 'unique-id',
   userAgent: 'user-agent'
 };
+
+ReactNative.NativeModules.RNKeychainManager = {
+  getInternetCredentialsForServer: jest.fn(),
+  setInternetCredentialsForServer: jest.fn()
+};
+
+jest.mock('@react-native-community/async-storage', () => mockAsyncStorage);
+
+// react-native-notification mock
+mockReactNativeNotification();

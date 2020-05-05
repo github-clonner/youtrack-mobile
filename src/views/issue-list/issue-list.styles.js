@@ -8,21 +8,6 @@ export default StyleSheet.create({
     flex: 1,
     backgroundColor: '#FFF'
   },
-  errorContainer: {
-    flex: 1
-  },
-  errorTitle: {
-    marginTop: UNIT*2,
-    fontSize: 16,
-    textAlign: 'center'
-  },
-  errorContent: {
-    margin: UNIT,
-    marginTop: UNIT/4,
-    color: COLOR_FONT_GRAY,
-    fontSize: 14,
-    textAlign: 'center'
-  },
   tryAgainButton: {
     alignSelf: 'center',
     paddingTop: UNIT*2
@@ -38,7 +23,7 @@ export default StyleSheet.create({
   row: {
     flexDirection: 'row',
     justifyContent: 'flex-start',
-    paddingLeft: 10,
+    paddingLeft: UNIT * 2,
     paddingRight: UNIT * 1.5,
     paddingTop: 13,
     paddingBottom: UNIT*2
@@ -62,14 +47,9 @@ export default StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between'
   },
-  arrowImage: {
-    marginTop: 4,
-    height: 14,
-    resizeMode: 'contain'
-  },
   separator: {
     height: 0.5,
-    marginLeft: 40,
+    marginLeft: UNIT * 2,
     backgroundColor: COLOR_GRAY
   },
   summary: {
@@ -92,5 +72,10 @@ export default StyleSheet.create({
   listFooterMessage: {
     textAlign: 'center',
     padding: UNIT * 2
+  },
+  tags: {
+    height: 22,
+    overflow: 'hidden',
+    marginTop: UNIT / 2
   }
 });

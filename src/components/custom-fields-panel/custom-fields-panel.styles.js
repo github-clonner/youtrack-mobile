@@ -1,5 +1,4 @@
 import {StyleSheet} from 'react-native';
-import bottomPadding from '../bottom-padding/bottom-padding';
 import {
   UNIT,
   FOOTER_HEIGHT,
@@ -9,8 +8,7 @@ import {
   COLOR_TRANSPARENT_BLACK,
   COLOR_FONT_GRAY,
   COLOR_FONT_ON_BLACK,
-  COLOR_BLACK,
-  COLOR_DARK_BORDER
+  COLOR_BLACK
 } from '../../components/variables/variables';
 
 const SAVING_ALPHA = '70';
@@ -18,27 +16,28 @@ const DONE_BUTTON_HEIGHT = 24;
 
 export default StyleSheet.create({
   placeholder: {
-    height: FOOTER_HEIGHT + bottomPadding,
+    height: FOOTER_HEIGHT,
     backgroundColor: COLOR_BLACK
+  },
+  customFieldsEditor: {
+    top: UNIT * 2,
+    borderWidth: 0
+  },
+  topBorder: {
+    height: 1,
+    marginLeft: UNIT * 2,
+    marginRight: UNIT * 2,
+    backgroundColor: '#475159'
   },
   customFieldsPanel: {
     paddingLeft: UNIT,
     flexDirection: 'row',
     backgroundColor: COLOR_BLACK,
-    height: FOOTER_HEIGHT + bottomPadding,
-    borderTopWidth: 1,
-    borderColor: COLOR_DARK_BORDER,
-    flexShrink: 0
+    height: FOOTER_HEIGHT
   },
-
-  modal: {
-    flex: 1,
-    justifyContent: 'space-between',
-    left: 0,
-    right: 0,
-    bottom: 0
+  customFieldsPanelModal: {
+    borderTopWidth: 0
   },
-
   editorViewContainer: {
     flex: 1,
     flexShrink: 1,
@@ -72,9 +71,9 @@ export default StyleSheet.create({
     bottom: 0
   },
   doneButton: {
+    marginBottom: UNIT * 2,
     backgroundColor: COLOR_PINK,
-    padding: UNIT,
-    paddingBottom: UNIT + bottomPadding
+    padding: UNIT
   },
   doneButtonText: {
     height: DONE_BUTTON_HEIGHT,

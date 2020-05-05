@@ -5,6 +5,7 @@ import styles from './custom-field.styles';
 import {lockInactive} from '../icon/icon';
 import {NO_COLOR_ID} from '../color-field/color-field';
 import type {CustomField as CustomFieldType, FieldValue} from '../../flow/CustomFields';
+import {getEntityPresentation} from '../issue-formatter/issue-formatter';
 
 type Props = {
   field: CustomFieldType,
@@ -30,10 +31,19 @@ export default class CustomField extends Component<Props, void> {
       if (fieldType === 'date') {
         return new Date(value).toLocaleDateString();
       }
+      if (fieldType === 'date and time') {
+        const date = new Date(value).toLocaleDateString();
+        const time = new Date(value).toLocaleTimeString([],
+          {
+            hour: '2-digit',
+            minute: '2-digit'
+          });
+        return `${date} ${time}`;
+      }
       if (fieldType === 'integer' || fieldType === 'string' || fieldType === 'float') {
         return value;
       }
-      return value.name || value.fullName || value.login || value.presentation;
+      return getEntityPresentation(value);
     }
 
     return emptyValue;
@@ -103,21 +113,23 @@ export default class CustomField extends Component<Props, void> {
         style={[styles.wrapper, active ? styles.wrapperActive : null]}
         onPress={this.props.onPress}
         disabled={this.props.disabled}>
-          {this._renderColorMaker(field.value)}
-          <View
-            style={styles.valuesWrapper}
+
+        <View style={styles.keyWrapper}>
+          {disabled && <Image style={styles.keyLockedIcon} source={lockInactive}/>}
+          <Text
+            style={styles.keyText}
+            testID="name"
           >
-            {this._renderValue(field.value, this._getFieldType(field))}
-          </View>
-          <View style={styles.keyWrapper}>
-            {disabled && <Image style={styles.keyLockedIcon} source={lockInactive}/>}
-            <Text
-              style={[styles.keyText, this.props.disabled ? styles.valueTextDisabled : null]}
-              testID="name"
-            >
-              {this._getKey()}
+            {this._getKey()}
           </Text>
-          </View>
+        </View>
+
+        <View style={styles.valuesWrapper}>
+          {this._renderValue(field.value, this._getFieldType(field))}
+        </View>
+
+        {this._renderColorMaker(field.value)}
+
       </TouchableOpacity>
     );
   }

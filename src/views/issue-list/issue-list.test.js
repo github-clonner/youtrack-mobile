@@ -1,18 +1,16 @@
 import * as actions from './issue-list-actions';
 import * as types from './issue-list-action-types';
+import {populateStorage, flushStoragePart, getStorageState} from '../../components/storage/storage';
 import {ISSUE_UPDATED} from '../single-issue/single-issue-action-types';
 import sinon from 'sinon';
-import {AsyncStorage as MockedStorage} from 'react-native';
 import reducer from './issue-list-reducers';
 
 describe('Issue list actions', () => {
   let dispatch;
   let getState;
-  let sandbox;
   const TEST_QUERY = 'test-query';
 
   beforeEach(() => {
-    sandbox = sinon.sandbox.create();
     const state = {
       app: {
         auth: {
@@ -24,8 +22,6 @@ describe('Issue list actions', () => {
     getState = () => state;
   });
 
-  afterEach(() => sandbox.restore());
-
   it('should set issues query', () => {
     actions
       .setIssuesQuery(TEST_QUERY)
@@ -33,7 +29,8 @@ describe('Issue list actions', () => {
   });
 
   it('should read stored query', async () => {
-    sandbox.stub(MockedStorage, 'getItem', () => new Promise(resolve => resolve(TEST_QUERY)));
+    await populateStorage();
+    await flushStoragePart({query: TEST_QUERY});
     await actions.readStoredIssuesQuery()(dispatch);
 
     dispatch.should.have.been.calledWith({type: types.SET_ISSUES_QUERY, query: TEST_QUERY});
@@ -54,10 +51,8 @@ describe('Issue list actions', () => {
       {id: 'saved', owner: {ringId: 'current-user'}},
       {id: 'saved-not-own', owner: {ringId: 'other-user'}}
     ];
-    sinon.stub(MockedStorage,
-      'getItem',
-      () => new Promise(resolve => resolve(JSON.stringify(['last-query'])))
-    );
+
+    flushStoragePart({lastQueries: ['last-query']});
 
     const apiMock = {
       getSavedQueries: () => new Promise(resolve => resolve(savedQueries))
@@ -77,11 +72,11 @@ describe('Issue list actions', () => {
       .should.deep.equal({type: types.CLEAR_SUGGESTIONS});
   });
 
-  it('should store query', () => {
-    sandbox.stub(MockedStorage, 'setItem');
-    actions.storeIssuesQuery(TEST_QUERY)();
+  it('should store query', async () => {
+    await populateStorage();
+    actions.storeIssuesQuery('query-update')();
 
-    MockedStorage.setItem.should.have.been.calledWith('YT_QUERY_STORAGE', TEST_QUERY);
+    getStorageState().query.should.equal('query-update');
   });
 
   it('should receive issues', () => {
@@ -95,7 +90,9 @@ describe('Issue list actions', () => {
     const COUNT = 12;
     const stateMock = {issueList: {query: 'test-query'}};
     const apiMock = {
-      getIssuesCount: () => new Promise(resolve => resolve(COUNT))
+      issues: {
+        getIssuesCount: () => new Promise(resolve => resolve(COUNT))
+      }
     };
 
     await actions.loadIssuesCount()(dispatch, () => stateMock, () => apiMock);

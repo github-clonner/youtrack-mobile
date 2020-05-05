@@ -26,6 +26,7 @@ const AGILE_PROFILE = toField([
     defaultAgile: AGILE_SHORT_WITH_SPRINTS.toString(),
     visitedSprints: [
       'id',
+      'name',
       {
         agile: 'id'
       }
@@ -86,8 +87,8 @@ const BOARD = toField([
 const BOARD_ON_LIST = toField([
   'id',
   'name',
-  {sprints: ['id', 'name']},
-  {creator: ['id', 'fullName']}
+  'favorite',
+  {sprints: ['id', 'name']}
 ]);
 
 const SPRINT_WITH_BOARD = toField([
@@ -95,7 +96,7 @@ const SPRINT_WITH_BOARD = toField([
   { board: BOARD },
   'eventSourceTicket',
   {
-    agile: ['id', 'name', 'orphansAtTheTop']
+    agile: ['id', 'name', 'orphansAtTheTop', 'isUpdatable', {estimationField: 'id'}]
   }
 ]);
 

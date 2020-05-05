@@ -1,7 +1,7 @@
 /* @flow */
-import {View, Image, Text, TouchableOpacity} from 'react-native';
+import {View, Image, Text, TouchableOpacity, ActivityIndicator} from 'react-native';
 import React, {Component} from 'react';
-import {logo} from '../../components/icon/icon';
+import {logo, pencil} from '../../components/icon/icon';
 import usage from '../../components/usage/usage';
 import {formatYouTrackURL} from '../../components/config/config';
 import styles from './home.styles';
@@ -10,7 +10,8 @@ type Props = {
   backendUrl: string,
   message: string,
   error: string | {message: string},
-  onChangeBackendUrl: (newUrl: string) => any
+  onChangeBackendUrl: (newUrl: string) => any,
+  onRetry: () => any
 };
 
 type State = {
@@ -26,33 +27,60 @@ export default class Home extends Component<Props, State> {
     usage.trackScreenView('Loading');
   }
 
+  _renderRetryAction() {
+    if (!this.props.error) {
+      return null;
+    }
+    return <TouchableOpacity
+      onPress={() => this.props.onRetry()}>
+      <Text style={styles.retry}>Retry</Text>
+    </TouchableOpacity>;
+  }
+
   _renderMessage() {
-    if (this.props.error) {
-      const message = this.props.error.message || this.props.error;
+    const {error, message} = this.props;
+    if (error) {
+      // $FlowFixMe
+      const message: string = error.message || error;
       return <Text style={[styles.message, {color: 'red'}]}>{message}</Text>;
     }
 
-    if (this.props.message) {
-      return <Text style={[styles.message]}>{this.props.message}</Text>;
+    if (message) {
+      return <Text style={styles.message}>{message}</Text>;
     }
   }
 
-  _renderUrl() {
-    if (!this.props.backendUrl) {
-      return;
+  _renderUrlButton() {
+    const {backendUrl} = this.props;
+    if (!backendUrl) {
+      return <ActivityIndicator style={styles.urlButton}/>;
     }
 
-    return <TouchableOpacity onPress={() => this.props.onChangeBackendUrl(this.props.backendUrl)} style={styles.urlButton}>
-      <Text style={styles.url}>{formatYouTrackURL(this.props.backendUrl)}</Text>
-    </TouchableOpacity>;
+    return (
+      <TouchableOpacity
+        style={styles.urlButton}
+        onPress={() => this.props.onChangeBackendUrl(backendUrl)}>
+        <Text style={styles.url}>{formatYouTrackURL(backendUrl)}</Text>
+        <Image style={styles.urlIcon} source={pencil} />
+      </TouchableOpacity>
+    );
   }
 
   render() {
     return (
       <View style={styles.container}>
-        <Image style={styles.logoImage} source={logo}/>
-        {this._renderUrl()}
-        {this._renderMessage()}
+
+        <View style={styles.logoContainer}>
+          <Image style={styles.logoImage} source={logo}/>
+        </View>
+
+        {this._renderUrlButton()}
+
+        <View style={styles.messageContainer}>
+          {this._renderRetryAction()}
+          {this._renderMessage()}
+        </View>
+
       </View>
     );
   }

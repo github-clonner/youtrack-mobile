@@ -1,0 +1,22 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`<Tags/> Render should match a snapshot 1`] = `
+<LineBlock
+  allChildrenRenderer={[Function]}
+  childrenRenderer={[Function]}
+  inline={false}
+  style={
+    Object {
+      "alignItems": "center",
+      "flexDirection": "row",
+      "justifyContent": "flex-start",
+    }
+  }
+  testID="tagsListContainer"
+  title={
+    <Text>
+      Tags: 
+    </Text>
+  }
+/>
+`;

@@ -1,46 +1,48 @@
 /* eslint-disable */
 
-type SprintInformation = {
+export type Sprint = {
   id: string,
   name: string,
   goal: ?string,
   archived: boolean,
   start: ?number,
-  finish: ?number
+  finish: ?number,
+  agile: ?Board
 };
 
-type AgileUserProfile = {
+export type AgileUserProfile = {
   defaultAgile: {
     id: string,
     name: string,
-    sprints: Array<SprintInformation>
+    sprints: Array<Sprint>
   },
   visitedSprints: Array<{
     id: string,
+    name: string,
     agile: { id: string }
   }>
 };
 
-type AgileColumnFieldValue = {
+export type AgileColumnFieldValue = {
   id: string,
   presentation: string,
 };
 
-type AgileColumn = {
+export type AgileColumn = {
   id: string,
   collapsed: boolean,
   isVisible: boolean,
   fieldValues: Array<AgileColumnFieldValue>
 };
 
-type BoardCell = {
+export type BoardCell = {
   id: string,
   tooManyIssues: boolean,
   column: { id: string },
   issues: Array<IssueOnList>
 };
 
-type AgileBoardRow = {
+export type AgileBoardRow = {
   $type: string,
   id: string,
   name: string,
@@ -49,33 +51,40 @@ type AgileBoardRow = {
   cells: Array<BoardCell>
 };
 
-type BoardColumn = {
+export type BoardColumn = {
   id: string,
   collapsed: boolean,
   agileColumn: AgileColumn
 };
 
-type Board = {
+export type Board = {
   id: string,
   name: string,
   columns: Array<BoardColumn>,
   orphanRow: AgileBoardRow,
-  trimmedSwimlanes: Array<AgileBoardRow>
+  trimmedSwimlanes: Array<AgileBoardRow>,
+  sprints: Array<Sprint>,
+  status: {
+    valid: boolean,
+    error: Array<string>
+  }
 };
 
-type BoardOnList = {
+export type BoardOnList = {
   id: string,
   name: string,
   sprints: {id: string, name: string},
   creator: {id: string, fullName: string}
 }
 
-type SprintFull = SprintInformation & {
+export type SprintFull = Sprint & {
   board: Board,
   eventSourceTicket: string,
   agile: {
     id: string,
     name: string,
-    orphansAtTheTop: boolean
+    orphansAtTheTop: boolean,
+    isUpdatable: boolean,
+    estimationField: {id: string}
   }
 };

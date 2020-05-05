@@ -1,6 +1,7 @@
 /* @flow */
 import fromNow from 'from-now';
-import type {IssueUser, CustomField} from '../../flow/CustomFields';
+import type {CustomField} from '../../flow/CustomFields';
+import type {User} from '../../flow/User';
 import type {AnyIssue} from '../../flow/Issue';
 
 const shortRelativeFormat = {
@@ -14,14 +15,14 @@ const shortRelativeFormat = {
   'years': ['y', 'y']
 };
 
-function getForText(assignee: IssueUser | Array<IssueUser>) {
+function getForText(assignee: User | Array<User>) {
   if (Array.isArray(assignee) && assignee.length > 0) {
     return assignee
       .map(it => getForText(it))
       .join(', ');
   }
   if (assignee && !Array.isArray(assignee)) {
-    return `for ${assignee.fullName || assignee.login}`;
+    return `for ${getEntityPresentation(assignee)}`;
   }
   return '    Unassigned';
 }
@@ -53,6 +54,12 @@ function relativeDate(date: Date|number) {
   return `${formatted}${getPostfix(formatted)}`;
 }
 
+function absDate(date: Date|number, localeString: ?string) {
+  const utcDate = new Date(date);
+  const _locales = localeString ? [localeString] : [];
+  return utcDate.toLocaleTimeString(_locales, {day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit'});
+}
+
 function shortRelativeDate(date: Date|number) {
   date = makeDatePast(date);
   const formatted = fromNow(date, shortRelativeFormat);
@@ -62,6 +69,7 @@ function shortRelativeDate(date: Date|number) {
 function findIssueField(issue: AnyIssue, predicate: (field: CustomField) => boolean): ?CustomField {
   const fields: Array<CustomField> = issue.fields;
 
+  // eslint-disable-next-line no-unused-vars
   for (const field of fields) {
     if (predicate(field)) {
       return field;
@@ -72,10 +80,9 @@ function findIssueField(issue: AnyIssue, predicate: (field: CustomField) => bool
 }
 
 function getPriotityField(issue: AnyIssue): ?CustomField {
-  const PRIORITY_FIELDS = ['Priority'];
   return findIssueField(issue, field => {
     const fieldName = field.projectCustomField.field.name;
-    return PRIORITY_FIELDS.includes(fieldName);
+    return fieldName.toLowerCase() === 'priority';
   });
 }
 
@@ -88,8 +95,32 @@ function getAssigneeField(issue: AnyIssue): ?CustomField {
 }
 
 function getReadableID(issue: AnyIssue) {
-  return `${issue.project.shortName}-${issue.numberInProject}`;
+  return `${issue.idReadable || issue.id}`;
 }
 
+function getEntityPresentation(entity: Object) {
+  if (!entity) {
+    return '';
+  }
 
-export {getForText, formatDate, relativeDate, shortRelativeDate, getPriotityField, getAssigneeField, getReadableID};
+  return entity.fullName || entity.localizedName || entity.name || entity.login || entity.presentation || entity.text || '';
+}
+
+function getVisibilityPresentation(entity: Object) {
+  if (!entity) {
+    return null;
+  }
+
+  const visibility = entity.visibility || {};
+  return (
+    [].concat(visibility.permittedGroups || [])
+      .concat(visibility.permittedUsers || [])
+      .map(it => getEntityPresentation(it))
+      .join(', ')
+  );
+}
+
+export {
+  getForText, formatDate, relativeDate, shortRelativeDate, getPriotityField, getAssigneeField, getReadableID,
+  getVisibilityPresentation, getEntityPresentation, absDate
+};

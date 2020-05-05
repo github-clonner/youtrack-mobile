@@ -72,12 +72,6 @@ describe('Api helper', () => {
     });
   });
 
-  describe('field types', () => {
-    it('should convert project field type to field type', () => {
-      const fieldType = ApiHelper.projectFieldTypeToFieldType('jetbrains.charisma.customfields.complex.ownedField.OwnedProjectCustomField');
-      fieldType.should.equal('jetbrains.charisma.customfields.complex.ownedField.SingleOwnedIssueCustomField');
-    });
-  });
 
   describe('relative urls converter', () => {
     it('should convert relative urls to absolute', () => {
@@ -130,6 +124,33 @@ describe('Api helper', () => {
 
     it('should not touch clean strings while stripping tags', () => {
       ApiHelper.stripHtml('foo bar').should.equal('foo bar');
+    });
+
+
+    describe('removeDuplicatesByPropName', () => {
+      let items = [];
+      beforeEach(() => {
+        items = [{
+          name: 'John',
+          id: 1
+        }, {
+          name: 'Anna',
+          id: 2
+        }, {
+          name: 'John',
+          id: 3
+        }];
+      });
+
+      it('should return an array if an object value name is not provided', function () {
+        const result = ApiHelper.removeDuplicatesByPropName(items);
+        result.should.equal(items);
+        result.length.should.equal(items.length);
+      });
+
+      it('should remove duplicates in an array by provided object value name', () => {
+        ApiHelper.removeDuplicatesByPropName(items, 'name').length.should.equal(2);
+      });
     });
   });
 });

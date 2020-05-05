@@ -1,18 +1,14 @@
 /* @flow */
 import * as types from './issue-list-action-types';
-import {AsyncStorage} from 'react-native';
 import ApiHelper from '../../components/api/api__helper';
+import {getStorageState, flushStoragePart} from '../../components/storage/storage';
 import {notifyError, resolveError} from '../../components/notification/notification';
-import Cache from '../../components/cache/cache';
 import log from '../../components/log/log';
 import type Api from '../../components/api/api';
 import type {IssueOnList} from '../../flow/Issue';
 
 const PAGE_SIZE = 10;
-const QUERY_STORAGE_KEY = 'YT_QUERY_STORAGE';
-const LAST_QUERIES_STORAGE_KEY = 'YT_LAST_QUERIES_STORAGE_KEY';
 const MAX_STORED_QUERIES = 5;
-const lastQueriesCache = new Cache(LAST_QUERIES_STORAGE_KEY);
 
 type ApiGetter = () => Api;
 
@@ -25,8 +21,7 @@ export function setIssuesQuery(query: string) {
 
 export function readStoredIssuesQuery() {
   return async (dispatch: (any) => any) => {
-    const query = await AsyncStorage.getItem(QUERY_STORAGE_KEY);
-    log.info(`Have read stored query: ${query}`);
+    const query = getStorageState().query || '';
     dispatch(setIssuesQuery(query));
   };
 }
@@ -43,7 +38,7 @@ export function suggestIssuesQuery(query: string, caret: number) {
         suggestions = await api.getSavedQueries();
         suggestions = suggestions.filter(s => s.owner.ringId === currentUser.id);
 
-        const lastQueries = (await lastQueriesCache.read() || []).map(query => ({name: query, query}));
+        const lastQueries = (getStorageState().lastQueries || []).map(query => ({name: query, query}));
         suggestions = [...suggestions, ...lastQueries];
       }
 
@@ -63,17 +58,17 @@ async function storeLastQuery(query: string) {
   if (!query) {
     return;
   }
-  const storedQueries = await lastQueriesCache.read() || [];
-  const updatedQueries = [query, ...storedQueries];
+
+  const updatedQueries = [query, ...(getStorageState().lastQueries || [])];
   const uniqueUpdatedQueries = Array.from(new Set(updatedQueries)).
     slice(0, MAX_STORED_QUERIES);
 
-  lastQueriesCache.store(uniqueUpdatedQueries);
+  flushStoragePart({lastQueries: uniqueUpdatedQueries});
 }
 
 export function storeIssuesQuery(query: string) {
   return () => {
-    AsyncStorage.setItem(QUERY_STORAGE_KEY, query);
+    flushStoragePart({query});
     storeLastQuery(query);
   };
 }
@@ -111,18 +106,17 @@ export function setIssuesCount(count: number) {
 }
 
 export function cacheIssues(issues: Array<IssueOnList>) {
-  return (dispatch: (any) => any, getState: () => Object) => {
-    const cache = getState().issueList.cache;
-    cache.store(issues);
+  return (dispatch: (any) => any) => {
+    flushStoragePart({issuesCache: issues});
   };
 }
 
 export function readCachedIssues() {
   return async (dispatch: (any) => any, getState: () => Object) => {
-    const cache = getState().issueList.cache;
-    const issues: ?Array<IssueOnList> = await cache.read();
+    const issues = getStorageState().issuesCache;
+
     if (issues && issues.length) {
-      log.info(`Loaded ${issues.length} cached issues`);
+      log.debug(`Loaded ${issues.length} cached issues`);
       dispatch(receiveIssues(issues));
     }
   };
@@ -143,12 +137,12 @@ export function loadIssues(query: string) {
     dispatch(startIssuesLoading());
     dispatch(loadIssuesCount());
     try {
-      let issues: Array<IssueOnList> = await api.getIssues(query, PAGE_SIZE);
+      let issues: Array<IssueOnList> = await api.issues.getIssues(query, PAGE_SIZE);
       issues = ApiHelper.fillIssuesFieldHash(issues);
-      log.info(`${issues.length} issues loaded`);
+      log.info(`${issues?.length} issues loaded`);
       dispatch(receiveIssues(issues));
       dispatch(cacheIssues(issues));
-      if (issues.length < PAGE_SIZE) {
+      if (issues?.length < PAGE_SIZE) {
         log.info('End reached during initial load');
         dispatch(listEndReached());
       }
@@ -192,14 +186,14 @@ export function loadMoreIssues() {
     dispatch(startMoreIssuesLoading(newSkip));
 
     try {
-      let moreIssues: Array<IssueOnList> = await api.getIssues(query, PAGE_SIZE, newSkip);
+      let moreIssues: Array<IssueOnList> = await api.issues.getIssues(query, PAGE_SIZE, newSkip);
       log.info(`Loaded ${PAGE_SIZE} more issues.`);
       moreIssues = ApiHelper.fillIssuesFieldHash(moreIssues);
-      const updatedIssues = issues.concat(moreIssues);
+      const updatedIssues = ApiHelper.removeDuplicatesByPropName(issues.concat(moreIssues), 'id');
       dispatch(receiveIssues(updatedIssues));
       dispatch(cacheIssues(updatedIssues));
-      if (moreIssues.length < PAGE_SIZE) {
-        log.info(`End of issues reached: all ${updatedIssues.length} issues are loaded`);
+      if (moreIssues?.length < PAGE_SIZE) {
+        log.info(`End of issues reached: all ${updatedIssues?.length} issues are loaded`);
         dispatch(listEndReached());
       }
     } catch (err) {
@@ -215,7 +209,7 @@ export function loadIssuesCount() {
     const api: Api = getApi();
     const {query} = getState().issueList;
 
-    const count = await api.getIssuesCount(query);
+    const count = await api.issues.getIssuesCount(query);
 
     dispatch(setIssuesCount(count));
   };
